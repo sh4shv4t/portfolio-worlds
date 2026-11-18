@@ -1,0 +1,1693 @@
+---
+// DRAFT: Workbench. An engineering student's bench at 3 AM, rendered as pixel art.
+// The scene is authored as one SVG (1920x1080), then rasterised to a 640x360 canvas
+// and scaled up with hard pixels. Everything interactive sits in HTML/SVG overlays.
+
+import fs from 'node:fs';
+import path from 'node:path';
+
+// Real assets (all CC0), inlined as data URIs so they survive the SVG -> canvas rasterise.
+// City art: ansimuz "Warped City". Textures: Poly Haven. Sounds (in /assets/sfx): Kenney.
+const asset = (p: string) => {
+  const buf = fs.readFileSync(path.join(process.cwd(), 'public/assets', p));
+  return `data:image/${p.endsWith('.png') ? 'png' : 'jpeg'};base64,${buf.toString('base64')}`;
+};
+const A = {
+  bench: asset('tex/bench.jpg'),
+  ply: asset('tex/plywood.jpg'),
+  metal: asset('tex/metal.jpg'),
+  sky: asset('city/sky.png'),
+  far: asset('city/buildings-far.png'),
+  near: asset('city/buildings-near.png'),
+  hotel: asset('city/hotel-sign.png'),
+};
+const PX = 'image-rendering:pixelated';
+
+// Gear outline generator for the mechanical bits
+function gear(cx: number, cy: number, r: number, teeth: number, ry = 1) {
+  const pts: string[] = [];
+  for (let i = 0; i < teeth * 4; i++) {
+    const a = (i / (teeth * 4)) * Math.PI * 2;
+    const rr = i % 4 < 2 ? r : r * 0.8;
+    pts.push(`${(cx + rr * Math.cos(a)).toFixed(1)},${(cy + rr * Math.sin(a) * ry).toFixed(1)}`);
+  }
+  return pts.join(' ');
+}
+
+// Cubbies in the back shelf, left to right (from the sketch)
+const cubbies = [
+  { x1: 210, x2: 443, href: '/projects/project-z', title: 'Project Z', label: 'PROJECT Z', text: 'A self-hostable platform for agents that get better over time. Run, see, learn.' },
+  { x1: 443, x2: 690, href: '/projects/errand', title: 'Errand', label: 'ERRAND', text: 'Send your model on fewer errands. Big models hand off tasks to cheaper specialists.' },
+  { x1: 690, x2: 913, href: '/projects/tracebank', title: 'tracebank', label: 'TRACEBANK', text: 'Collects consented, long-horizon coding agent traces, scrubbed on your own machine.' },
+  { x1: 913, x2: 1172, href: '/research', title: 'Research', label: 'RESEARCH', text: 'Hidden overrides in reasoning models, why LLMs sound alike and a malloc question.' },
+  { x1: 1172, x2: 1346, href: '/projects/reminders', title: 'Reminders', label: 'REMINDERS', text: "A small Windows app so birthdays, events and tasks don't slip through." },
+];
+
+// Clickable things on the bench (scene coordinates)
+const hotspots = [
+  ...cubbies.map((c) => ({ x: c.x1 + 4, y: 304, w: c.x2 - c.x1 - 8, h: 232, href: c.href, title: c.title, text: c.text })),
+  { x: 1352, y: 304, w: 360, h: 228, href: '/oss', title: 'Open source & Kaggle', text: 'Merged PRs in Kubeflow and Cortex, plus Name That LLM on Kaggle.' },
+  { x: 1296, y: 596, w: 372, h: 244, href: '/writing', title: 'Writing', text: 'Drafts and articles. Mostly on Medium.' },
+  { x: 456, y: 600, w: 494, h: 124, href: '/projects', title: 'Everything on the bench', text: 'All the projects, shipped and half-wired.' },
+];
+
+const notes = [
+  { x: 54, y: 150, w: 330, rot: -4, color: 'yellow', big: true, lines: ["Hey, I'm Shashvat."], sub: 'I build stuff around LLM agents.' },
+  { x: 214, y: 772, w: 250, rot: 3, color: 'pink', lines: ['how they run,', 'where they went wrong', '+ how they get better'] },
+  { x: 628, y: 786, w: 260, rot: -2, color: 'blue', lines: ['research:', 'poking at the insides', 'of reasoning models'] },
+  { x: 1336, y: 846, w: 300, rot: 2, color: 'green', lines: ['OSS: AI infra', 'when I can'], links: true },
+];
+
+const inventory = [
+  { item: 'Beige CRT', href: '/projects/project-z', title: 'Project Z', text: cubbies[0].text, color: '#4dff88' },
+  { item: 'Courier drone', href: '/projects/errand', title: 'Errand', text: cubbies[1].text, color: '#ffb347' },
+  { item: 'Tape deck', href: '/projects/tracebank', title: 'tracebank', text: cubbies[2].text, color: '#c9c3b6' },
+  { item: 'Oscilloscope', href: '/research', title: 'Research', text: cubbies[3].text, color: '#22e1d6' },
+  { item: 'Alarm clock', href: '/projects/reminders', title: 'Reminders', text: cubbies[4].text, color: '#ff4d4d' },
+  { item: 'Pegboard', href: '/oss', title: 'Open source & Kaggle', text: 'Merged PRs in Kubeflow and Cortex, plus Name That LLM.', color: '#b06bff' },
+  { item: 'Laptop', href: '/writing', title: 'Writing', text: 'Drafts and articles, mostly on Medium.', color: '#8ea4ff' },
+];
+
+const holes = Array.from({ length: 26 }, (_, i) => i);
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Workbench (draft) · Shashvat Singh</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400;600;700&family=Silkscreen&family=VT323&display=swap" rel="stylesheet" />
+  </head>
+  <body>
+    <div class="stage" id="stage">
+      <!-- The whole scene. Shown as-is in HD mode or without JS; rasterised to pixels otherwise. -->
+      <svg id="scene" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 1080" aria-hidden="true">
+        <defs>
+          <linearGradient id="g-wall" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stop-color="#170b2c" />
+            <stop offset="1" stop-color="#2c1242" />
+          </linearGradient>
+          <linearGradient id="g-sky" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stop-color="#1b0f3d" />
+            <stop offset="0.6" stop-color="#5a1f6e" />
+            <stop offset="1" stop-color="#ff4f8b" />
+          </linearGradient>
+          <linearGradient id="g-wood" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stop-color="#4b2c1c" />
+            <stop offset="0.5" stop-color="#6e4329" />
+            <stop offset="1" stop-color="#7d4e2f" />
+          </linearGradient>
+          <linearGradient id="g-cubby" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stop-color="#0c0912" />
+            <stop offset="1" stop-color="#1f1a29" />
+          </linearGradient>
+          <linearGradient id="g-cone" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stop-color="#ffd59a" stop-opacity="0.32" />
+            <stop offset="1" stop-color="#ffd59a" stop-opacity="0" />
+          </linearGradient>
+          <linearGradient id="g-metal" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0" stop-color="#e9e9ef" />
+            <stop offset="1" stop-color="#8d8f9c" />
+          </linearGradient>
+          <radialGradient id="g-pool" cx="0.5" cy="0.5" r="0.5">
+            <stop offset="0" stop-color="#ffcf8a" stop-opacity="0.38" />
+            <stop offset="1" stop-color="#ffcf8a" stop-opacity="0" />
+          </radialGradient>
+          <radialGradient id="g-vig" cx="0.5" cy="0.6" r="0.72">
+            <stop offset="0.55" stop-color="#0b0418" stop-opacity="0" />
+            <stop offset="1" stop-color="#0b0418" stop-opacity="0.85" />
+          </radialGradient>
+          <radialGradient id="g-green" cx="0.5" cy="0.5" r="0.5">
+            <stop offset="0" stop-color="#4dff88" stop-opacity="0.45" />
+            <stop offset="1" stop-color="#4dff88" stop-opacity="0" />
+          </radialGradient>
+          <radialGradient id="g-cyan" cx="0.5" cy="0.5" r="0.5">
+            <stop offset="0" stop-color="#22e1d6" stop-opacity="0.4" />
+            <stop offset="1" stop-color="#22e1d6" stop-opacity="0" />
+          </radialGradient>
+          <radialGradient id="g-blue" cx="0.5" cy="0.5" r="0.5">
+            <stop offset="0" stop-color="#7d8cff" stop-opacity="0.4" />
+            <stop offset="1" stop-color="#7d8cff" stop-opacity="0" />
+          </radialGradient>
+          <pattern id="p-peg" width="24" height="24" patternUnits="userSpaceOnUse">
+            <circle cx="12" cy="12" r="3.4" fill="#2a1a10" />
+            <circle cx="12.8" cy="12.8" r="2.4" fill="#120a06" />
+          </pattern>
+          <pattern id="t-bench" width="330" height="330" patternUnits="userSpaceOnUse">
+            <image href={A.bench} width="330" height="330" preserveAspectRatio="none" />
+          </pattern>
+          <pattern id="t-ply" width="260" height="260" patternUnits="userSpaceOnUse">
+            <image href={A.ply} width="260" height="260" preserveAspectRatio="none" />
+          </pattern>
+          <pattern id="t-metal" width="220" height="220" patternUnits="userSpaceOnUse">
+            <image href={A.metal} width="220" height="220" preserveAspectRatio="none" />
+          </pattern>
+          <linearGradient id="g-benchshade" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stop-color="#14061f" stop-opacity="0.78" />
+            <stop offset="0.45" stop-color="#2a0f2c" stop-opacity="0.35" />
+            <stop offset="1" stop-color="#2a0f2c" stop-opacity="0.12" />
+          </linearGradient>
+          <clipPath id="c-window"><rect x="1140" y="10" width="580" height="270" /></clipPath>
+          <filter id="f-win" x="-5%" y="-5%" width="110%" height="110%"><feGaussianBlur stdDeviation="2.2" /></filter>
+          <pattern id="p-mat" width="30" height="30" patternUnits="userSpaceOnUse">
+            <rect width="30" height="30" fill="#2a5266" />
+            <path d="M30 0H0V30" fill="none" stroke="#3d7189" stroke-width="2" />
+          </pattern>
+          <pattern id="p-bb" width="12" height="12" patternUnits="userSpaceOnUse">
+            <rect width="12" height="12" fill="#ece8de" />
+            <rect x="4" y="4" width="4" height="4" fill="#a59f92" />
+          </pattern>
+          <pattern id="p-grain" width="220" height="16" patternUnits="userSpaceOnUse">
+            <path d="M0 5 Q55 2 110 6 T220 5 M0 12 Q70 15 140 11 T220 13" fill="none" stroke="#2c170c" stroke-width="2" opacity="0.35" />
+          </pattern>
+          <pattern id="p-blinds" width="10" height="22" patternUnits="userSpaceOnUse">
+            <rect width="10" height="8" fill="#0d0718" opacity="0.55" />
+          </pattern>
+          <filter id="f-bg" x="-5%" y="-5%" width="110%" height="110%"><feGaussianBlur stdDeviation="7" /></filter>
+          <filter id="f-soft" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="10" /></filter>
+          <filter id="f-big" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="26" /></filter>
+        </defs>
+
+        <!-- ===================== BACKGROUND (out of focus) ===================== -->
+        <g filter="url(#f-bg)">
+          <rect width="1920" height="1080" fill="url(#g-wall)" />
+          <!-- neon sign -->
+          <rect x="640" y="70" width="380" height="110" rx="40" fill="none" stroke="#ff3d8b" stroke-width="12" />
+          <text x="830" y="152" text-anchor="middle" font-family="Arial Black, Arial, sans-serif" font-size="74" font-weight="900" fill="#ff7ab8">LAB</text>
+          <ellipse cx="830" cy="125" rx="300" ry="120" fill="#ff3d8b" opacity="0.22" />
+          <!-- poster -->
+          <rect x="440" y="30" width="150" height="200" fill="#241040" stroke="#3b2059" stroke-width="8" />
+          <circle cx="515" cy="120" r="48" fill="#ffb347" />
+          <g fill="#241040"><rect x="460" y="120" width="110" height="7" /><rect x="460" y="136" width="110" height="9" /><rect x="460" y="154" width="110" height="11" /></g>
+          <!-- window light spill on the wall -->
+          <ellipse cx="1430" cy="300" rx="420" ry="140" fill="#ff4f8b" opacity="0.18" />
+          <!-- floor -->
+          <rect y="950" width="1920" height="130" fill="#0d0718" />
+        </g>
+
+        <!-- window: real pixel-art city outside, slightly out of focus -->
+        <g filter="url(#f-win)">
+          <g clip-path="url(#c-window)">
+            <image href={A.sky} x="1140" y="-131" width="301" height="564" preserveAspectRatio="none" style={PX} />
+            <image href={A.sky} x="1440" y="-131" width="301" height="564" preserveAspectRatio="none" style={PX} />
+            <image href={A.far} x="1130" y="112" width="346" height="298" preserveAspectRatio="none" style={PX} />
+            <image href={A.far} x="1440" y="96" width="346" height="298" preserveAspectRatio="none" style={PX} />
+            <image href={A.near} x="1090" y="196" width="1183" height="502" preserveAspectRatio="none" style={PX} />
+            <image href={A.hotel} x="1530" y="128" width="136" height="70" preserveAspectRatio="none" style={PX} />
+            <rect x="1140" y="10" width="580" height="270" fill="#12062a" opacity="0.08" />
+          </g>
+          <rect x="1140" y="10" width="580" height="270" fill="url(#p-blinds)" />
+          <rect x="1132" y="2" width="596" height="286" fill="none" stroke="#3a2450" stroke-width="16" />
+        </g>
+
+        <!-- ===================== desk lamp (foreground, sharp) ===================== -->
+        <path d="M1612 0 L1560 92 L1512 150" stroke="#2a2733" stroke-width="16" fill="none" stroke-linecap="round" />
+        <path d="M1612 0 L1560 92 L1512 150" stroke="#4a4658" stroke-width="5" fill="none" stroke-linecap="round" />
+        <circle cx="1560" cy="92" r="11" fill="#1c1a24" />
+        <polygon points="1478,130 1556,150 1540,206 1446,186" fill="#2f2b3a" />
+        <polygon points="1478,130 1556,150 1550,160 1474,140" fill="#57506a" />
+        <ellipse cx="1494" cy="198" rx="50" ry="10" fill="#fff1cf" />
+
+        <!-- items on top of the shelf -->
+        <g>
+          <rect x="296" y="214" width="22" height="58" fill="#c0392b" /><rect x="318" y="222" width="18" height="50" fill="#2e86de" />
+          <rect x="336" y="208" width="26" height="64" fill="#f2c230" /><rect x="362" y="226" width="16" height="46" fill="#8e44ad" />
+          <polygon points="378,272 402,212 418,216 394,272" fill="#27ae60" />
+          <rect x="586" y="238" width="44" height="34" fill="#b8643a" /><rect x="582" y="232" width="52" height="10" fill="#d07a4b" />
+          <path d="M608 232 Q600 196 610 184 Q616 200 612 232 M612 232 Q626 206 636 204 Q630 222 616 232" fill="#3ea85b" />
+          <!-- little robot figurine -->
+          <rect x="900" y="226" width="56" height="46" rx="6" fill="#d7dbe4" /><rect x="908" y="190" width="40" height="34" rx="6" fill="#e9ecf2" />
+          <rect x="914" y="200" width="10" height="8" fill="#22e1d6" /><rect x="932" y="200" width="10" height="8" fill="#22e1d6" />
+          <line x1="928" y1="190" x2="928" y2="176" stroke="#d7dbe4" stroke-width="4" /><circle cx="928" cy="174" r="5" fill="#ff3d8b" />
+          <!-- filament spool -->
+          <ellipse cx="1112" cy="246" rx="34" ry="30" fill="#ff8a3a" /><ellipse cx="1112" cy="246" rx="12" ry="11" fill="#3a2a22" />
+          <rect x="1078" y="270" width="68" height="4" fill="#000" opacity="0.3" />
+        </g>
+
+        <!-- ===================== SHELF UNIT ===================== -->
+        <rect x="200" y="282" width="1525" height="262" fill="url(#t-ply)" />
+        <rect x="200" y="282" width="1525" height="262" fill="#1a1222" opacity="0.62" />
+        <rect x="190" y="270" width="1545" height="24" fill="url(#t-ply)" />
+        <rect x="190" y="270" width="1545" height="24" fill="#2b1f36" opacity="0.4" />
+        <rect x="190" y="270" width="1545" height="4" fill="#d9b88a" opacity="0.7" />
+        <rect x="212" y="294" width="1132" height="5" fill="#c98bff" />
+        <rect x="212" y="292" width="1132" height="22" fill="#b06bff" opacity="0.18" />
+        {
+          cubbies.map((c) => (
+            <g>
+              <rect x={c.x1 + 8} y="300" width={c.x2 - c.x1 - 16} height="232" fill="url(#g-cubby)" />
+              <rect x={c.x1 + 8} y="300" width={c.x2 - c.x1 - 16} height="26" fill="#000" opacity="0.35" />
+              <rect x={c.x1 + 8} y="300" width={c.x2 - c.x1 - 16} height="232" fill="#b06bff" opacity="0.05" />
+            </g>
+          ))
+        }
+        <!-- pegboard -->
+        <rect x="1352" y="300" width="362" height="232" fill="url(#t-ply)" />
+        <rect x="1352" y="300" width="362" height="232" fill="#5a3416" opacity="0.35" />
+        <rect x="1352" y="300" width="362" height="232" fill="url(#p-peg)" />
+        <rect x="1352" y="300" width="362" height="232" fill="#000" opacity="0.18" />
+
+        <!-- Cubby 1: Project Z CRT -->
+        <ellipse cx="326" cy="440" rx="150" ry="110" fill="url(#g-green)" />
+        <rect x="238" y="364" width="176" height="160" rx="14" fill="#cfc4a8" />
+        <rect x="238" y="364" width="176" height="12" rx="6" fill="#e7dec7" />
+        <rect x="252" y="378" width="148" height="108" rx="10" fill="#2a2924" />
+        <rect x="262" y="388" width="128" height="88" rx="6" fill="#062012" />
+        <!-- screen content (agent trace graph) is drawn live on the animation layer -->
+        <rect x="262" y="388" width="128" height="20" fill="#4dff88" opacity="0.05" />
+        <circle cx="266" cy="506" r="6" fill="#8a7d63" /><circle cx="286" cy="506" r="6" fill="#8a7d63" />
+        <rect x="350" y="500" width="50" height="4" fill="#8a7d63" /><rect x="350" y="508" width="50" height="4" fill="#8a7d63" />
+        <circle cx="398" cy="374" r="8" fill="#e0523b" />
+        <rect x="224" y="512" width="12" height="16" fill="#3b3a40" /><rect x="226" y="508" width="8" height="4" fill="#5b5a62" />
+        <!-- floppy labelled for the judge -->
+        <rect x="416" y="490" width="22" height="34" fill="#2b2f6b" /><rect x="420" y="494" width="14" height="12" fill="#e9e2d3" /><rect x="422" y="512" width="10" height="8" fill="#9aa0a8" />
+
+        <!-- Cubby 2: Errand. The big expensive model (robot) hands a parcel to a cheap courier drone -->
+        <ellipse cx="628" cy="518" rx="52" ry="9" fill="#14222b" />
+        <ellipse cx="628" cy="518" rx="42" ry="6" fill="none" stroke="#22e1d6" stroke-width="3" />
+        <ellipse cx="628" cy="500" rx="80" ry="40" fill="url(#g-cyan)" />
+        <!-- big robot -->
+        <ellipse cx="494" cy="528" rx="46" ry="6" fill="#000" opacity="0.4" />
+        <rect x="458" y="440" width="72" height="86" rx="8" fill="#6b6a86" />
+        <rect x="458" y="440" width="72" height="10" rx="5" fill="#8d8cab" />
+        <rect x="470" y="460" width="48" height="30" rx="3" fill="#2b2a3a" />
+        <rect x="476" y="466" width="10" height="6" fill="#ffb347" /><rect x="490" y="466" width="10" height="6" fill="#ffb347" /><rect x="504" y="466" width="8" height="6" fill="#ffb347" />
+        <text x="494" y="514" text-anchor="middle" font-family="monospace" font-size="18" font-weight="700" fill="#f2c230">$$$</text>
+        <rect x="466" y="398" width="56" height="42" rx="8" fill="#7d7c9b" />
+        <rect x="472" y="408" width="44" height="16" rx="4" fill="#0f2730" />
+        <rect x="478" y="412" width="10" height="8" fill="#22e1d6" /><rect x="500" y="412" width="10" height="8" fill="#22e1d6" />
+        <line x1="494" y1="398" x2="494" y2="384" stroke="#7d7c9b" stroke-width="4" />
+        <!-- arm + flat hand the parcel waits on -->
+        <rect x="528" y="478" width="24" height="10" rx="4" fill="#6b6a86" />
+        <rect x="530" y="488" width="38" height="6" rx="2" fill="#8d8cab" />
+
+        <!-- Cubby 3: tracebank. Tape deck recording traces, cassettes with scrubbed (redacted) labels -->
+        <rect x="710" y="428" width="186" height="98" rx="8" fill="#2d2f3a" />
+        <rect x="710" y="428" width="186" height="98" rx="8" fill="url(#t-metal)" opacity="0.6" />
+        <rect x="710" y="428" width="186" height="8" rx="4" fill="#4a4d5c" />
+        <circle cx="762" cy="474" r="32" fill="#c9c3b6" /><circle cx="762" cy="474" r="30" fill="#2a2420" />
+        <circle cx="846" cy="474" r="32" fill="#c9c3b6" /><circle cx="846" cy="474" r="30" fill="#2a2420" />
+        <rect x="718" y="504" width="170" height="18" rx="2" fill="#16151c" />
+        <text x="724" y="518" font-family="monospace" font-size="11" font-weight="700" fill="#e0523b">REC</text>
+        <g>
+          <rect x="722" y="398" width="96" height="28" rx="3" fill="#e9e2d3" /><rect x="722" y="398" width="96" height="7" fill="#ff3d8b" />
+          <rect x="728" y="410" width="30" height="5" fill="#333" /><rect x="762" y="410" width="22" height="5" fill="#111" /><rect x="788" y="410" width="18" height="5" fill="#333" />
+          <rect x="728" y="372" width="96" height="26" rx="3" fill="#e9e2d3" /><rect x="728" y="372" width="96" height="7" fill="#22e1d6" />
+          <rect x="734" y="384" width="18" height="5" fill="#333" /><rect x="756" y="384" width="36" height="5" fill="#111" />
+          <rect x="720" y="346" width="96" height="26" rx="3" fill="#e9e2d3" /><rect x="720" y="346" width="96" height="7" fill="#ffb347" />
+          <rect x="726" y="358" width="26" height="5" fill="#111" /><rect x="756" y="358" width="30" height="5" fill="#333" />
+        </g>
+        <!-- consent slip -->
+        <rect x="830" y="380" width="56" height="44" fill="#f6eedc" transform="rotate(6 858 402)" />
+        <path d="M842 404 L852 414 L872 392" stroke="#27ae60" stroke-width="5" fill="none" transform="rotate(6 858 402)" />
+
+        <!-- Cubby 4: Research. Oscilloscope probing a chip under a magnifier ("the insides of a model") -->
+        <ellipse cx="1004" cy="444" rx="130" ry="90" fill="url(#g-cyan)" />
+        <rect x="922" y="384" width="178" height="142" rx="8" fill="#bdb9b1" />
+        <rect x="922" y="384" width="178" height="10" rx="5" fill="#dedad2" />
+        <rect x="934" y="398" width="122" height="94" rx="4" fill="#052326" />
+        <g stroke="#22e1d6" stroke-width="1.5" opacity="0.28">
+          <path d="M964 398V492M994 398V492M1024 398V492M934 422H1056M934 446H1056M934 470H1056" />
+        </g>
+        <circle cx="1078" cy="414" r="10" fill="#3b3a40" /><circle cx="1078" cy="446" r="10" fill="#3b3a40" /><circle cx="1078" cy="478" r="7" fill="#e0523b" />
+        <rect x="934" y="502" width="122" height="12" fill="#9a968e" />
+        <!-- chip on a stand, probe clipped on, magnifier above -->
+        <rect x="1110" y="506" width="52" height="20" rx="3" fill="#2a2a32" />
+        <rect x="1118" y="490" width="36" height="18" fill="#111" />
+        <g fill="#d4af37"><rect x="1120" y="486" width="3" height="4" /><rect x="1127" y="486" width="3" height="4" /><rect x="1134" y="486" width="3" height="4" /><rect x="1141" y="486" width="3" height="4" /><rect x="1148" y="486" width="3" height="4" /></g>
+        <path d="M1080 478 C1100 470 1110 500 1124 492" stroke="#e0523b" stroke-width="3" fill="none" />
+        <!-- helping-hands style magnifier: post, horizontal arm, big lens with a glint -->
+        <rect x="1164" y="430" width="5" height="78" fill="#8d909c" />
+        <rect x="1128" y="428" width="41" height="5" fill="#8d909c" />
+        <circle cx="1132" cy="462" r="26" fill="#9fe4ff" fill-opacity="0.22" stroke="#e9e9ef" stroke-width="5" />
+        <rect x="1129" y="430" width="6" height="8" fill="#8d909c" />
+        <g fill="#111" opacity="0.6"><rect x="1120" y="470" width="26" height="12" /></g>
+        <path d="M1114 452 Q1120 442 1132 440" stroke="#fff" stroke-width="3" fill="none" opacity="0.9" />
+        <path d="M1146 478 Q1150 472 1150 466" stroke="#fff" stroke-width="2" fill="none" opacity="0.5" />
+
+        <!-- Cubby 5: Reminders. Alarm clock + a phone that buzzes with the push notification -->
+        <rect x="1180" y="448" width="104" height="78" rx="10" fill="#15131a" />
+        <rect x="1180" y="448" width="104" height="7" rx="4" fill="#2d2a35" />
+        <rect x="1188" y="464" width="88" height="44" rx="4" fill="#1d0707" />
+        <ellipse cx="1232" cy="486" rx="74" ry="44" fill="#ff3030" opacity="0.14" />
+        <rect x="1190" y="414" width="34" height="30" fill="#f6eedc" /><rect x="1190" y="414" width="34" height="9" fill="#d8432f" />
+        <rect x="1286" y="516" width="48" height="10" rx="3" fill="#2d2a35" />
+
+        <!-- Pegboard: tools + OSS badges -->
+        <g>
+          <path d="M1392 330 L1404 410 M1418 330 L1406 410" stroke="#c0392b" stroke-width="12" stroke-linecap="round" />
+          <path d="M1398 324 L1412 324" stroke="#bfc3cc" stroke-width="10" />
+          <rect x="1442" y="322" width="16" height="120" fill="url(#g-metal)" />
+          <g fill="#3a3a40"><rect x="1442" y="336" width="8" height="3" /><rect x="1442" y="356" width="8" height="3" /><rect x="1442" y="376" width="8" height="3" /><rect x="1442" y="396" width="8" height="3" /></g>
+          <circle cx="1650" cy="356" r="32" fill="#b07b3a" /><circle cx="1650" cy="356" r="12" fill="#5a3f26" />
+          <path d="M1624 340 A30 30 0 0 1 1676 340" stroke="#d9a35a" stroke-width="5" fill="none" />
+          <path d="M1700 320 Q1690 380 1705 440" stroke="#e0523b" stroke-width="5" fill="none" />
+          <!-- merged-PR badges -->
+          <g>
+            <polygon points="1500,420 1522,432 1522,456 1500,468 1478,456 1478,432" fill="#8957e5" />
+            <path d="M1490 444 L1498 452 L1512 436" stroke="#fff" stroke-width="4" fill="none" />
+            <polygon points="1556,420 1578,432 1578,456 1556,468 1534,456 1534,432" fill="#8957e5" />
+            <path d="M1546 444 L1554 452 L1568 436" stroke="#fff" stroke-width="4" fill="none" />
+            <polygon points="1612,420 1634,432 1634,456 1612,468 1590,456 1590,432" fill="#8957e5" />
+            <path d="M1602 444 L1610 452 L1624 436" stroke="#fff" stroke-width="4" fill="none" />
+          </g>
+          <!-- Kaggle pennant -->
+          <polygon points="1560,480 1680,488 1560,520" fill="#20beff" />
+          <rect x="1554" y="474" width="6" height="56" fill="#ddd" />
+          <rect x="1478" y="350" width="60" height="44" fill="#f2c230" /><rect x="1486" y="360" width="44" height="8" fill="#232323" /><rect x="1486" y="374" width="30" height="6" fill="#232323" />
+        </g>
+
+        <rect x="200" y="532" width="1525" height="14" fill="url(#t-ply)" />
+        <rect x="200" y="532" width="1525" height="14" fill="#2b1f36" opacity="0.35" />
+        <rect x="200" y="532" width="1525" height="3" fill="#d9b88a" opacity="0.6" />
+
+        <!-- ===================== BENCH (real pine planks) ===================== -->
+        <polygon points="200,546 1726,546 1842,905 76,905" fill="url(#t-bench)" />
+        <polygon points="200,546 1726,546 1842,905 76,905" fill="url(#g-benchshade)" />
+        <rect x="76" y="905" width="1766" height="46" fill="url(#t-bench)" />
+        <rect x="76" y="905" width="1766" height="46" fill="#12060e" opacity="0.6" />
+        <rect x="76" y="905" width="1766" height="5" fill="#d79a62" opacity="0.8" />
+        <rect x="160" y="951" width="34" height="129" fill="#2a190e" /><rect x="1724" y="951" width="34" height="129" fill="#2a190e" />
+        <!-- shadow along the back of the bench -->
+        <rect x="200" y="546" width="1526" height="24" fill="#000" opacity="0.35" />
+
+        <!-- ESD mat + grounding wrist strap -->
+        <polygon points="360,578 1162,578 1206,842 300,842" fill="url(#p-mat)" />
+        <polygon points="360,578 1162,578 1206,842 300,842" fill="none" stroke="#1d3c4b" stroke-width="5" />
+        <circle cx="1150" cy="590" r="7" fill="#c7cad3" />
+        <path d="M1150 590 q14 8 0 16 q-14 8 0 16 q14 8 0 16 q-14 8 0 16 q14 8 4 22" stroke="#1d3c4b" stroke-width="5" fill="none" />
+        <ellipse cx="1162" cy="684" rx="20" ry="8" fill="none" stroke="#1d3c4b" stroke-width="6" />
+
+        <!-- bench power supply (readouts are live on the animation layer) -->
+        <ellipse cx="282" cy="690" rx="78" ry="10" fill="#000" opacity="0.45" />
+        <rect x="216" y="590" width="132" height="98" rx="6" fill="#c9c6bd" />
+        <rect x="216" y="590" width="132" height="98" rx="6" fill="url(#t-metal)" opacity="0.25" />
+        <rect x="216" y="590" width="132" height="8" rx="4" fill="#e4e1d8" />
+        <rect x="226" y="604" width="52" height="24" fill="#170606" /><rect x="286" y="604" width="52" height="24" fill="#061407" />
+        <circle cx="248" cy="648" r="11" fill="#3b3a40" /><circle cx="314" cy="648" r="11" fill="#3b3a40" />
+        <rect x="246" y="638" width="3" height="8" fill="#ddd" /><rect x="312" y="638" width="3" height="8" fill="#ddd" />
+        <circle cx="240" cy="674" r="6" fill="#e0523b" /><circle cx="262" cy="674" r="6" fill="#1c1c22" /><circle cx="324" cy="674" r="6" fill="#27ae60" />
+        <path d="M240 674 C300 760 420 640 466 642" stroke="#e0523b" stroke-width="4" fill="none" />
+        <path d="M262 674 C320 780 430 700 466 708" stroke="#1c1c22" stroke-width="4" fill="none" />
+
+        <!-- soldering station -->
+        <ellipse cx="290" cy="778" rx="80" ry="12" fill="#000" opacity="0.4" />
+        <rect x="222" y="694" width="132" height="80" rx="8" fill="#2c2c34" />
+        <rect x="222" y="694" width="132" height="80" rx="8" fill="url(#t-metal)" opacity="0.55" />
+        <rect x="222" y="694" width="132" height="8" rx="4" fill="#4a4a56" />
+        <rect x="236" y="712" width="62" height="28" fill="#1d0707" />
+        <g fill="#ff4040"><rect x="242" y="718" width="12" height="16" /><rect x="260" y="718" width="12" height="16" /><rect x="278" y="718" width="12" height="16" /></g>
+        <circle cx="326" cy="734" r="16" fill="#55555f" /><rect x="324" y="720" width="4" height="12" fill="#ddd" />
+        <path d="M340 700 C380 640 420 690 452 640" stroke="#1c1c22" stroke-width="7" fill="none" />
+        <!-- iron in its holder -->
+        <ellipse cx="470" cy="700" rx="46" ry="12" fill="#3a3a44" />
+        <path d="M444 690 L500 630" stroke="#9ea3b0" stroke-width="22" stroke-dasharray="6 6" />
+        <path d="M452 640 L520 584" stroke="#2b6cff" stroke-width="16" stroke-linecap="round" />
+        <path d="M520 584 L560 554" stroke="#c7cad3" stroke-width="7" stroke-linecap="round" />
+        <path d="M560 554 L574 544" stroke="#ff8a3a" stroke-width="5" stroke-linecap="round" />
+        <circle cx="574" cy="544" r="18" fill="#ff8a3a" opacity="0.3" />
+        <rect x="380" y="726" width="58" height="20" rx="3" fill="#f2c230" />
+        <!-- solder spool + tweezers + flux pen -->
+        <ellipse cx="420" cy="800" rx="34" ry="12" fill="#000" opacity="0.35" />
+        <ellipse cx="418" cy="790" rx="32" ry="14" fill="#2b6cff" />
+        <ellipse cx="418" cy="786" rx="24" ry="9" fill="#c7cad3" />
+        <ellipse cx="418" cy="786" rx="9" ry="4" fill="#1d1a24" />
+        <path d="M442 786 Q470 770 488 790" stroke="#c7cad3" stroke-width="3" fill="none" />
+        <path d="M520 812 L604 796 M520 812 L602 804" stroke="#bfc3cc" stroke-width="4" stroke-linecap="round" />
+        <path d="M640 822 L708 806" stroke="#f2c230" stroke-width="10" stroke-linecap="round" /><path d="M708 806 L720 803" stroke="#c7cad3" stroke-width="5" stroke-linecap="round" />
+
+        <!-- breadboard + jumpers + LEDs -->
+        <rect x="466" y="648" width="312" height="74" fill="#000" opacity="0.3" />
+        <rect x="460" y="636" width="312" height="78" fill="url(#p-bb)" />
+        <rect x="460" y="636" width="312" height="78" fill="none" stroke="#c9c3b6" stroke-width="3" />
+        <rect x="460" y="672" width="312" height="6" fill="#cfc9bc" />
+        <rect x="464" y="640" width="304" height="3" fill="#e0523b" /><rect x="464" y="707" width="304" height="3" fill="#2e86de" />
+        <g stroke-width="6" fill="none" stroke-linecap="round">
+          <path d="M500 692 Q520 610 560 660" stroke="#e0523b" />
+          <path d="M610 692 Q650 600 700 660" stroke="#f2c230" />
+          <path d="M640 652 Q760 560 830 650" stroke="#27ae60" />
+          <path d="M700 696 Q790 740 850 690" stroke="#2e86de" />
+        </g>
+        <g>
+          <rect x="532" y="652" width="4" height="16" fill="#aaa" /><circle cx="534" cy="650" r="8" fill="#ff3b3b" />
+          <rect x="560" y="652" width="4" height="16" fill="#aaa" /><circle cx="562" cy="650" r="8" fill="#3bff7a" />
+          <rect x="588" y="652" width="4" height="16" fill="#aaa" /><circle cx="590" cy="650" r="8" fill="#3b9bff" />
+        </g>
+        <!-- resistor on the board -->
+        <rect x="618" y="682" width="40" height="10" rx="5" fill="#d9b38c" />
+        <rect x="626" y="682" width="4" height="10" fill="#8e44ad" /><rect x="634" y="682" width="4" height="10" fill="#c0392b" /><rect x="642" y="682" width="4" height="10" fill="#000" />
+        <!-- dev board -->
+        <rect x="796" y="630" width="140" height="78" fill="#000" opacity="0.3" />
+        <rect x="792" y="622" width="140" height="78" rx="4" fill="#127a6b" />
+        <rect x="830" y="640" width="40" height="34" fill="#111" />
+        <g fill="#9ea3b0"><rect x="832" y="634" width="4" height="40" /><rect x="840" y="634" width="4" height="40" /><rect x="848" y="634" width="4" height="40" /><rect x="856" y="634" width="4" height="40" /><rect x="864" y="634" width="4" height="40" /></g>
+        <g fill="#d4af37">{holes.slice(0, 12).map((i) => <rect x={800 + i * 11} y="626" width="5" height="5" />)}</g>
+        <g fill="#d4af37">{holes.slice(0, 12).map((i) => <rect x={800 + i * 11} y="690" width="5" height="5" />)}</g>
+        <rect x="918" y="648" width="22" height="18" fill="#c7cad3" />
+        <rect x="888" y="642" width="8" height="6" fill="#ff3d8b" />
+        <path d="M940 657 C1060 640 1200 760 1330 760" stroke="#1c1c22" stroke-width="7" fill="none" />
+
+        <!-- multimeter -->
+        <ellipse cx="1050" cy="742" rx="60" ry="10" fill="#000" opacity="0.4" />
+        <rect x="996" y="600" width="98" height="140" rx="12" fill="#f2c230" />
+        <rect x="1004" y="608" width="82" height="124" rx="8" fill="#232323" />
+        <rect x="1014" y="616" width="62" height="32" fill="#a9b59a" />
+        <circle cx="1045" cy="690" r="24" fill="#444" /><rect x="1043" y="668" width="4" height="22" fill="#eee" />
+        <path d="M1020 738 C1000 800 860 790 790 712" stroke="#e0523b" stroke-width="5" fill="none" />
+        <path d="M1070 738 C1080 810 900 820 820 712" stroke="#1c1c22" stroke-width="5" fill="none" />
+
+        <!-- servo robot arm + gears (mechanical) -->
+        <ellipse cx="1240" cy="722" rx="56" ry="13" fill="#000" opacity="0.4" />
+        <rect x="1204" y="690" width="72" height="30" rx="6" fill="#3a3a44" />
+        <ellipse cx="1240" cy="690" rx="36" ry="10" fill="#55555f" />
+        <path d="M1240 684 L1212 616 L1268 580" stroke="#d8d8de" stroke-width="16" fill="none" stroke-linecap="round" stroke-linejoin="round" />
+        <rect x="1226" y="672" width="28" height="22" fill="#2b6cff" /><rect x="1198" y="606" width="28" height="22" fill="#2b6cff" />
+        <path d="M1268 580 L1292 570 M1268 580 L1290 596" stroke="#9ea3b0" stroke-width="7" stroke-linecap="round" />
+        <polygon points={gear(1232, 792, 30, 10, 0.45)} fill="#9ea3b0" /><ellipse cx="1232" cy="792" rx="8" ry="4" fill="#4a4a56" />
+        <polygon points={gear(1278, 806, 20, 8, 0.45)} fill="#c7a64b" /><ellipse cx="1278" cy="806" rx="6" ry="3" fill="#4a4a56" />
+        <!-- calipers -->
+        <path d="M900 878 L1160 848" stroke="url(#g-metal)" stroke-width="12" stroke-linecap="round" />
+        <path d="M904 878 L898 900 M960 872 L956 894" stroke="#c7cad3" stroke-width="7" />
+        <!-- loose resistors and screws -->
+        <g>
+          <rect x="140" y="860" width="44" height="10" rx="5" fill="#d9b38c" transform="rotate(-18 162 865)" />
+          <circle cx="1196" cy="884" r="6" fill="#bfc3cc" /><circle cx="1214" cy="876" r="5" fill="#bfc3cc" />
+        </g>
+
+        <!-- laptop -->
+        <ellipse cx="1482" cy="842" rx="200" ry="16" fill="#000" opacity="0.45" />
+        <ellipse cx="1480" cy="690" rx="230" ry="150" fill="url(#g-blue)" />
+        <rect x="1336" y="598" width="290" height="176" rx="10" fill="#1b1b22" />
+        <rect x="1348" y="610" width="266" height="152" fill="#0e1022" />
+        <rect x="1348" y="610" width="266" height="14" fill="#1f2340" />
+        <circle cx="1358" cy="617" r="3" fill="#ff5f57" /><circle cx="1368" cy="617" r="3" fill="#febc2e" /><circle cx="1378" cy="617" r="3" fill="#28c840" />
+        <rect x="1540" y="614" width="60" height="6" rx="3" fill="#2e3460" />
+        <polygon points="1320,774 1642,774 1668,838 1294,838" fill="#9ea3b0" />
+        <polygon points="1340,780 1622,780 1636,816 1326,816" fill="#6d7280" />
+        <rect x="1440" y="822" width="84" height="10" rx="3" fill="#b8bcc8" />
+
+        <!-- mug -->
+        <ellipse cx="1714" cy="722" rx="42" ry="8" fill="#000" opacity="0.4" />
+        <rect x="1684" y="650" width="60" height="70" rx="6" fill="#7b3cff" />
+        <ellipse cx="1714" cy="652" rx="30" ry="7" fill="#2a160c" />
+        <path d="M1744 668 Q1770 672 1766 690 Q1762 708 1744 704" stroke="#7b3cff" stroke-width="9" fill="none" />
+
+        <!-- ===================== LIGHTING ===================== -->
+        <polygon points="1450,196 1542,186 1380,905 380,905" fill="url(#g-cone)" filter="url(#f-big)" />
+        <ellipse cx="900" cy="740" rx="680" ry="190" fill="url(#g-pool)" />
+        <!-- neon rim from the window (top right) -->
+        <rect x="1352" y="300" width="362" height="12" fill="#ff4f8b" opacity="0.25" />
+        <rect width="1920" height="1080" fill="#3a0f5c" opacity="0.12" />
+        <rect width="1920" height="1080" fill="url(#g-vig)" />
+      </svg>
+
+      <canvas id="px" width="640" height="360" aria-hidden="true"></canvas>
+      <!-- animation layer: drone, reels, scope, phone, screens... same pixel grid as the scene -->
+      <canvas id="anim" width="640" height="360" aria-hidden="true"></canvas>
+
+      <!-- live bits layered over the pixels -->
+      <div class="fx" aria-hidden="true">
+        <span class="smoke" style="--x:574;--y:540"></span>
+        <span class="smoke s2" style="--x:578;--y:540"></span>
+        <span class="smoke s3" style="--x:570;--y:540"></span>
+        <span class="steam" style="--x:1704;--y:640"></span>
+        <span class="steam s2" style="--x:1722;--y:640"></span>
+        <span class="crt" style="--x:262;--y:388;--w:128;--h:88"></span>
+        <span class="clock" id="clock" style="--x:1188;--y:464;--w:88;--h:44">03:47</span>
+        <span class="neon" style="--x:640;--y:70;--w:380;--h:110"></span>
+      </div>
+
+      <!-- label-maker tags under each cubby -->
+      <div class="labels" aria-hidden="true">
+        {cubbies.map((c) => <span style={`--x:${(c.x1 + c.x2) / 2};--y:540`}>{c.label}</span>)}
+        <span style="--x:1533;--y:540">OSS + KAGGLE</span>
+      </div>
+
+      <!-- hotspots -->
+      <svg class="hits" viewBox="0 0 1920 1080">
+        {
+          hotspots.map((h) => (
+            <a href={h.href} class="hit" data-title={h.title} data-text={h.text} data-x={h.x} data-y={h.y} data-w={h.w} data-h={h.h} aria-label={h.title}>
+              <rect x={h.x} y={h.y} width={h.w} height={h.h} fill="#000" fill-opacity="0" pointer-events="all" />
+              <g class="reticle">
+                <path d={`M${h.x - 10} ${h.y + 30}V${h.y - 10}H${h.x + 30} M${h.x + h.w - 30} ${h.y - 10}H${h.x + h.w + 10}V${h.y + 30} M${h.x + h.w + 10} ${h.y + h.h - 30}V${h.y + h.h + 10}H${h.x + h.w - 30} M${h.x + 30} ${h.y + h.h + 10}H${h.x - 10}V${h.y + h.h - 30}`} />
+              </g>
+            </a>
+          ))
+        }
+      </svg>
+
+      <!-- post-it notes (the about me) -->
+      <div class="notes">
+        {
+          notes.map((n) => (
+            <div class={`postit ${n.color} ${n.big ? 'big' : ''}`} style={`--x:${n.x};--y:${n.y};--w:${n.w};--r:${n.rot}deg`}>
+              <span class="tape" />
+              {n.big ? <h1>{n.lines[0]}</h1> : n.lines.map((l) => <p>{l}</p>)}
+              {n.sub && <p>{n.sub}</p>}
+              {n.links && (
+                <p class="links">
+                  <a href="https://github.com/sh4shv4t">github</a> · <a href="https://medium.com/@shashvat.k.singh.16">medium</a>
+                </p>
+              )}
+            </div>
+          ))
+        }
+      </div>
+
+      <!-- focus dimmer: the room darkens around whatever you aim at -->
+      <div class="dim" aria-hidden="true"></div>
+
+      <div class="tooltip" id="tip" role="status" aria-live="polite">
+        <span class="t-key">[ CLICK ] INSPECT</span>
+        <strong id="tip-title"></strong>
+        <span id="tip-text"></span>
+      </div>
+
+      <!-- VHS on-screen display + menu -->
+      <div class="osd" aria-hidden="true">
+        <span class="play">PLAY ▶</span>
+        <span class="tc" id="tc">SP 00:00:00</span>
+      </div>
+      <nav class="menu" aria-label="Main">
+        <a href="/projects">Projects</a>
+        <a href="/research">Research</a>
+        <a href="/writing">Writing</a>
+        <a href="/oss">OSS</a>
+        <button type="button" id="res" title="Toggle pixel rendering">RES: 360p</button>
+        <button type="button" id="snd" title="Toggle sound" aria-pressed="false">SND: OFF</button>
+      </nav>
+      <canvas id="grain" width="160" height="90" aria-hidden="true"></canvas>
+      <div class="scan" aria-hidden="true"></div>
+      <div class="ff" id="ff" aria-hidden="true"><span>▶▶</span></div>
+    </div>
+
+    <!-- inventory: readable list of everything, main way in on phones -->
+    <section class="inv">
+      <div class="mobile-notes">
+        <p class="pn yellow"><strong>Hey, I'm Shashvat.</strong> I build stuff around LLM agents: how they run, how you figure out where they went wrong and how they get better over time.</p>
+        <p class="pn blue">On the research side I poke at the insides of reasoning models.</p>
+        <p class="pn green">And when I can I contribute to open source AI infra.</p>
+      </div>
+      <h2>INVENTORY</h2>
+      <ul>
+        {
+          inventory.map((it, i) => (
+            <li>
+              <a href={it.href}>
+                <span class="slot" style={`--c:${it.color}`}>{String(i + 1).padStart(2, '0')}</span>
+                <span class="meta">
+                  <em>{it.item}</em>
+                  <strong>{it.title}</strong>
+                  <span>{it.text}</span>
+                </span>
+              </a>
+            </li>
+          ))
+        }
+      </ul>
+      <footer>
+        <a href="https://github.com/sh4shv4t">GitHub</a>
+        <a href="https://medium.com/@shashvat.k.singh.16">Medium</a>
+      </footer>
+      <p class="credits">
+        City pixel art by <a href="https://ansimuz.itch.io/warped-city">ansimuz</a>, textures from
+        <a href="https://polyhaven.com">Poly Haven</a>, sounds by <a href="https://kenney.nl">Kenney</a>. All CC0, thank you.
+      </p>
+    </section>
+
+    <a class="draft-tag" href="/drafts">Draft: Workbench</a>
+
+    <script>
+      const stage = document.getElementById('stage')!;
+      const svg = document.getElementById('scene') as unknown as SVGSVGElement;
+      const canvas = document.getElementById('px') as HTMLCanvasElement;
+      const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+      // 1. Rasterise the vector scene into a tiny canvas, then let CSS scale it up with hard pixels.
+      function rasterise() {
+        const src = new XMLSerializer().serializeToString(svg);
+        const img = new Image();
+        img.onload = () => {
+          const ctx = canvas.getContext('2d');
+          if (!ctx) return;
+          ctx.imageSmoothingEnabled = true;
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+          // Ordered (Bayer) dither + light colour quantise: gradients band like hand-made pixel art
+          try {
+            const id = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            const d = id.data;
+            const B = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
+            const step = 14;
+            for (let y = 0; y < canvas.height; y++) {
+              for (let x = 0; x < canvas.width; x++) {
+                const i = (y * canvas.width + x) * 4;
+                const t = (B[(y & 3) * 4 + (x & 3)] / 16 - 0.5) * step;
+                for (let c = 0; c < 3; c++) d[i + c] = Math.max(0, Math.min(255, Math.round((d[i + c] + t) / step) * step));
+              }
+            }
+            ctx.putImageData(id, 0, 0);
+          } catch {
+            /* canvas may be locked down in some browsers; plain pixels are fine */
+          }
+          stage.classList.add('pixel');
+        };
+        img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(src);
+      }
+      rasterise();
+
+      // Sound (Kenney CC0 UI sounds), off until you turn it on
+      let soundOn = false;
+      try {
+        soundOn = localStorage.getItem('wb-sound') === '1';
+      } catch {}
+      const sfx = (name: string, vol = 0.35) => {
+        if (!soundOn) return;
+        const a = new Audio(`/assets/sfx/${name}.mp3`);
+        a.volume = vol;
+        a.play().catch(() => {});
+      };
+      const snd = document.getElementById('snd')!;
+      const paintSnd = () => {
+        snd.textContent = soundOn ? 'SND: ON' : 'SND: OFF';
+        snd.setAttribute('aria-pressed', String(soundOn));
+      };
+      paintSnd();
+      snd.addEventListener('click', () => {
+        soundOn = !soundOn;
+        try {
+          localStorage.setItem('wb-sound', soundOn ? '1' : '0');
+        } catch {}
+        paintSnd();
+        sfx('toggle');
+      });
+
+      // ---------- Animation layer ----------
+      // Everything that moves is drawn here in scene coordinates (1920x1080), onto a canvas that
+      // matches the scene's pixel grid, so motion pixelates exactly like the static art.
+      const anim = document.getElementById('anim') as HTMLCanvasElement;
+      const ac = anim.getContext('2d')!;
+      let K = anim.width / 1920;
+      const setRes = (hd: boolean) => {
+        anim.width = hd ? 1920 : 640;
+        anim.height = hd ? 1080 : 360;
+        K = anim.width / 1920;
+      };
+      const clamp01 = (v: number) => Math.max(0, Math.min(1, v));
+      const ease = (v: number) => (v < 0.5 ? 2 * v * v : 1 - (-2 * v + 2) ** 2 / 2);
+      const phase = (t: number, a: number, b: number) => ease(clamp01((t - a) / (b - a)));
+      const mix = (a: number, b: number, k: number) => a + (b - a) * k;
+      const box = (x: number, y: number, w: number, h: number, c: string, r = 0) => {
+        ac.fillStyle = c;
+        if (r) {
+          ac.beginPath();
+          ac.roundRect(x, y, w, h, r);
+          ac.fill();
+        } else ac.fillRect(x, y, w, h);
+      };
+      const dot = (x: number, y: number, r: number, c: string) => {
+        ac.fillStyle = c;
+        ac.beginPath();
+        ac.arc(x, y, r, 0, Math.PI * 2);
+        ac.fill();
+      };
+      const glow = (x: number, y: number, r: number, c: string, a = 0.5) => {
+        const g = ac.createRadialGradient(x, y, 0, x, y, r);
+        g.addColorStop(0, c);
+        g.addColorStop(1, 'transparent');
+        ac.globalAlpha = a;
+        ac.fillStyle = g;
+        ac.fillRect(x - r, y - r, r * 2, r * 2);
+        ac.globalAlpha = 1;
+      };
+      const txt = (s: string, x: number, y: number, size: number, c: string) => {
+        ac.fillStyle = c;
+        ac.font = `700 ${size}px monospace`;
+        ac.fillText(s, x, y);
+      };
+
+      // Project Z: agent trace on the CRT. A step travels the chain, the judge flags the bad one.
+      const zNodes = [[280, 404], [306, 428], [334, 406], [362, 430], [350, 452], [300, 456]];
+      function drawZ(t: number) {
+        const p = (t * 0.55) % 1;
+        const along = p * (zNodes.length - 1);
+        const flagged = along >= 3;
+        ac.lineWidth = 2.5;
+        ac.strokeStyle = '#1f8c4b';
+        ac.beginPath();
+        zNodes.forEach(([x, y], i) => (i ? ac.lineTo(x, y) : ac.moveTo(x, y)));
+        ac.stroke();
+        zNodes.forEach(([x, y], i) => {
+          const bad = i === 3 && flagged;
+          if (bad) glow(x, y, 16, '#ff3b3b', 0.5 + 0.4 * Math.sin(t * 12));
+          dot(x, y, 5, bad ? '#ff4d4d' : i <= along ? '#7dffad' : '#2c8f55');
+        });
+        const i = Math.min(Math.floor(along), zNodes.length - 2);
+        const f = along - i;
+        const px = mix(zNodes[i][0], zNodes[i + 1][0], f), py = mix(zNodes[i][1], zNodes[i + 1][1], f);
+        glow(px, py, 10, '#d8ffe6', 0.8);
+        dot(px, py, 3, '#ffffff');
+        if (flagged) txt('!', 368, 420, 14, '#ff4d4d');
+        const step = Math.floor(t / 1.1) % 3;
+        ['RUN', 'SEE', 'LRN'].forEach((s, k) => {
+          box(270 + k * 38, 464, 34, 9, k === step ? '#4dff88' : '#14492a', 2);
+          txt(s, 276 + k * 38, 472, 8, k === step ? '#062012' : '#2f8c55');
+        });
+      }
+
+      // Errand: drone flies to the big robot, takes the parcel, delivers it, parcel goes green.
+      const PAD = [628, 494];
+      function drawErrand(t: number) {
+        const T = t % 6.6;
+        let dx = PAD[0], dy = PAD[1], carry = false, done = 0, parcelAlpha = 1;
+        const lift = phase(T, 1.0, 1.6), go = phase(T, 1.6, 2.5), down = phase(T, 2.5, 2.9);
+        const up = phase(T, 2.9, 3.3), back = phase(T, 3.3, 4.2), land = phase(T, 4.2, 4.8);
+        const settle = phase(T, 5.6, 6.0);
+        if (T >= 1.0) dy = mix(PAD[1], 420, lift);
+        if (T >= 1.6) dx = mix(PAD[0], 548, go);
+        if (T >= 2.5) dy = mix(420, 446, down);
+        if (T >= 2.9) { dy = mix(446, 412, up); carry = true; }
+        if (T >= 3.3) dx = mix(548, PAD[0], back);
+        if (T >= 4.2) dy = mix(412, 474, land);
+        if (T >= 4.8) done = clamp01((T - 4.8) / 0.4);
+        if (T >= 5.6) { carry = false; parcelAlpha = 0; dy = mix(474, PAD[1], settle); }
+        const flying = T > 1.0 && T < 6.0;
+        // parcel
+        const inHand = T < 2.9;
+        const fresh = T < 0.5 ? clamp01(T / 0.5) : 1;
+        let px = 548, py = 476;
+        if (!inHand) { px = dx; py = dy + 30; }
+        if (T >= 4.8 && T < 5.6) { px = PAD[0]; py = 504; parcelAlpha = 1 - clamp01((T - 5.2) / 0.4); }
+        if (parcelAlpha > 0) {
+          ac.globalAlpha = parcelAlpha * fresh;
+          box(px - 15, py - 12, 30, 24, done ? '#3bd37a' : '#c0915a', 2);
+          box(px - 3, py - 12, 6, 24, done ? '#e9ffe9' : '#e8d9b5');
+          if (done) { ac.strokeStyle = '#0b3d1f'; ac.lineWidth = 3; ac.beginPath(); ac.moveTo(px - 8, py); ac.lineTo(px - 2, py + 6); ac.lineTo(px + 9, py - 6); ac.stroke(); }
+          ac.globalAlpha = 1;
+          if (done && T < 5.6) txt('✓', px - 6, py - 22 - (T - 4.8) * 20, 16, '#4dff88');
+        }
+        // shadow + drone
+        const hgt = clamp01((PAD[1] - dy) / 90);
+        ac.globalAlpha = 0.35 * (1 - hgt * 0.6);
+        dot(dx, 526, 26 * (1 - hgt * 0.4), '#000');
+        ac.globalAlpha = 1;
+        const bob = flying ? Math.sin(t * 9) * 1.5 : 0;
+        const y = dy + bob;
+        if (carry) { ac.strokeStyle = '#1b100a'; ac.lineWidth = 2; ac.beginPath(); ac.moveTo(dx, y + 10); ac.lineTo(dx, y + 18); ac.stroke(); }
+        box(dx - 40, y - 12, 80, 5, '#1d1a24', 2);
+        const rw = flying ? 16 + Math.abs(Math.sin(t * 40)) * 12 : 26;
+        ac.globalAlpha = 0.6;
+        ac.fillStyle = '#e9e9ef';
+        ac.beginPath(); ac.ellipse(dx - 40, y - 16, rw, 4, 0, 0, Math.PI * 2); ac.ellipse(dx + 40, y - 16, rw, 4, 0, 0, Math.PI * 2); ac.fill();
+        ac.globalAlpha = 1;
+        ac.fillStyle = '#f2a93b';
+        ac.beginPath(); ac.ellipse(dx, y, 30, 11, 0, 0, Math.PI * 2); ac.fill();
+        ac.fillStyle = '#ffc96b';
+        ac.beginPath(); ac.ellipse(dx, y - 4, 24, 5, 0, 0, Math.PI * 2); ac.fill();
+        box(dx - 14, y - 2, 28, 7, '#1b100a', 3);
+        box(dx - 9, y, 4, 3, '#22e1d6'); box(dx + 5, y, 4, 3, '#22e1d6');
+        // robot antenna blinks while it waits
+        dot(494, 382, 5, Math.floor(t * 2) % 2 ? '#ff3d8b' : '#5a1f3a');
+        if (T < 1) glow(494, 382, 14, '#ff3d8b', 0.5);
+      }
+
+      // tracebank: reels spin, tape moves from left to right, REC blinks, VU meters bounce.
+      function drawTape(t: number) {
+        const k = (t % 24) / 24;
+        const rl = mix(27, 12, k), rr2 = mix(12, 27, k);
+        ac.strokeStyle = '#4a3a2c';
+        ac.lineWidth = 2;
+        ac.beginPath(); ac.moveTo(762 - rl * 0.2, 474 + rl); ac.lineTo(846 + rr2 * 0.2, 474 + rr2); ac.stroke();
+        [[762, rl, 3.2], [846, rr2, 2.4]].forEach(([cx, r, sp]) => {
+          dot(cx, 474, r, '#5b4130');
+          dot(cx, 474, 8, '#c9c3b6');
+          ac.strokeStyle = '#2a2420';
+          ac.lineWidth = 3;
+          for (let i = 0; i < 3; i++) {
+            const a = t * sp + (i * Math.PI * 2) / 3;
+            ac.beginPath(); ac.moveTo(cx, 474); ac.lineTo(cx + Math.cos(a) * 7, 474 + Math.sin(a) * 7); ac.stroke();
+          }
+        });
+        const rec = Math.floor(t * 1.6) % 2 === 0;
+        dot(758, 513, 4, rec ? '#ff3030' : '#4a1010');
+        if (rec) glow(758, 513, 12, '#ff3030', 0.6);
+        for (let ch = 0; ch < 2; ch++) {
+          const lvl = 0.35 + 0.35 * Math.abs(Math.sin(t * (5.3 + ch) + ch)) + 0.25 * Math.abs(Math.sin(t * 13.1 + ch * 2));
+          const n = Math.round(lvl * 12);
+          for (let i = 0; i < 12; i++) box(778 + i * 9, 507 + ch * 7, 7, 4, i < n ? (i > 9 ? '#ff3030' : i > 7 ? '#f2c230' : '#4dff88') : '#22222a');
+        }
+      }
+
+      // Research: scope trace with a spike that crosses the threshold and gets bracketed.
+      function drawScope(t: number) {
+        const x0 = 934, w = 122, cy = 446;
+        ac.save();
+        ac.beginPath(); ac.rect(x0, 398, w, 94); ac.clip();
+        ac.strokeStyle = 'rgba(255,61,90,0.55)';
+        ac.setLineDash([4, 4]); ac.lineWidth = 1.5;
+        ac.beginPath(); ac.moveTo(x0, 418); ac.lineTo(x0 + w, 418); ac.stroke();
+        ac.setLineDash([]);
+        const sx = x0 - 20 + ((t * 42) % 170);
+        ac.strokeStyle = '#22e1d6'; ac.lineWidth = 2.5; ac.shadowColor = '#22e1d6'; ac.shadowBlur = 6;
+        ac.beginPath();
+        for (let x = x0; x <= x0 + w; x += 2) {
+          const y = cy + Math.sin(x * 0.14 - t * 6) * 6 + Math.sin(x * 0.05 + t) * 3 - 40 * Math.exp(-((x - sx) ** 2) / 22);
+          x === x0 ? ac.moveTo(x, y) : ac.lineTo(x, y);
+        }
+        ac.stroke();
+        ac.shadowBlur = 0;
+        if (sx > x0 + 6 && sx < x0 + w - 6) {
+          ac.strokeStyle = '#ff3d5a'; ac.lineWidth = 2;
+          ac.strokeRect(sx - 9, 402, 18, 30);
+        }
+        ac.restore();
+      }
+
+      // Reminders: the phone buzzes with a birthday push every few seconds.
+      function drawPhone(t: number) {
+        const T = t % 5.5;
+        const ring = T < 2.2;
+        const shake = T < 0.6 ? Math.sin(T * 90) * 2.5 : 0;
+        const x = 1290 + shake, y = 438;
+        box(x, y, 40, 80, '#1a1a22', 6);
+        box(x + 4, y + 7, 32, 62, ring ? '#1d2448' : '#0b0d14', 3);
+        if (ring) {
+          glow(x + 20, y + 36, 40, '#8fa8ff', 0.35);
+          box(x + 6, y + 18, 28, 20, '#f6eedc', 3);
+          box(x + 9, y + 23, 8, 8, '#ff8fc0', 2);
+          box(x + 11, y + 20, 4, 3, '#ffd84a');
+          box(x + 19, y + 23, 12, 3, '#3a3a48');
+          box(x + 19, y + 29, 9, 3, '#8a8aa0');
+        }
+        box(x + 15, y + 72, 10, 3, '#3a3a48', 1);
+      }
+
+      // Bench: LED chase, multimeter + PSU readouts, typing on the laptop, dev board heartbeat.
+      function drawBench(t: number) {
+        const lit = Math.floor(t * 3) % 3;
+        [[534, '#ff3b3b'], [562, '#3bff7a'], [590, '#3b9bff']].forEach(([x, c], i) => {
+          if (i === lit) { glow(x as number, 650, 18, c as string, 0.75); dot(x as number, 650, 6, '#ffffff'); }
+        });
+        if (Math.floor(t * 4) % 4 === 0) { glow(892, 645, 12, '#ff3d8b', 0.7); box(888, 642, 8, 6, '#ffd0e4'); }
+        const v = ['3.30', '3.30', '3.29', '3.31'][Math.floor(t * 2.3) % 4];
+        txt(v, 1016, 643, 24, '#1c2416');
+        txt('12.0', 229, 623, 17, '#ff4040');
+        txt(['0.42', '0.43', '0.42', '0.41'][Math.floor(t * 1.7) % 4], 289, 623, 17, '#4dff88');
+        // laptop: a draft getting written
+        const lines = [150, 220, 200, 210, 0, 190, 214, 120, 0, 180, 160];
+        const total = lines.reduce((a, b) => a + b, 0);
+        let typed = (t * 70) % (total + 260);
+        let y = 640;
+        ac.fillStyle = '#e6e6f0';
+        for (let i = 0; i < lines.length && typed > 0; i++) {
+          const w = Math.min(lines[i], typed);
+          if (i === 0) box(1366, y - 8, w, 10, '#e6e6f0');
+          else if (lines[i]) box(1366, y - 4, w, 6, '#8a90b8');
+          typed -= lines[i];
+          if (typed <= 0 && Math.floor(t * 2) % 2) box(1366 + w + 3, y - 8, 3, 12, '#ffffff');
+          y += i === 0 ? 20 : 13;
+        }
+      }
+
+      // Dust in the lamp light, and the odd lamp flicker
+      const motes = Array.from({ length: 22 }, (_, i) => [560 + ((i * 197) % 820), (i * 131) % 600, 0.6 + (i % 3) * 0.4]);
+      function drawMotes(t: number) {
+        motes.forEach(([x0, y0, s], i) => {
+          const y = 860 - ((y0 + t * 14 * s) % 600);
+          const x = x0 + Math.sin(t * 0.4 + i) * 24 + (860 - y) * 0.25;
+          ac.globalAlpha = 0.35 + 0.25 * Math.sin(t + i);
+          box(x, y, 5, 5, '#ffe3b8');
+        });
+        ac.globalAlpha = 1;
+        if (t % 7.3 < 0.12) { ac.fillStyle = 'rgba(10,0,20,0.14)'; ac.fillRect(0, 0, 1920, 1080); }
+      }
+
+      function frame(t: number) {
+        ac.setTransform(1, 0, 0, 1, 0, 0);
+        ac.clearRect(0, 0, anim.width, anim.height);
+        ac.setTransform(K, 0, 0, K, 0, 0);
+        drawZ(t);
+        drawErrand(t);
+        drawTape(t);
+        drawScope(t);
+        drawPhone(t);
+        drawBench(t);
+        drawMotes(t);
+      }
+
+      let onScreen = true;
+      new IntersectionObserver(([e]) => (onScreen = e.isIntersecting)).observe(stage);
+      if (still) frame(3.6);
+      else {
+        let last = 0;
+        const loop = (ms: number) => {
+          if (onScreen && !document.hidden && ms - last > 50) {
+            last = ms;
+            frame(ms / 1000);
+          }
+          requestAnimationFrame(loop);
+        };
+        requestAnimationFrame(loop);
+      }
+
+      // Toggle between chunky pixels and the crisp vector original
+      const res = document.getElementById('res')!;
+      res.addEventListener('click', () => {
+        const hd = stage.classList.toggle('hd');
+        res.textContent = hd ? 'RES: HD' : 'RES: 360p';
+        setRes(hd);
+        if (still) frame(3.6);
+        sfx('toggle');
+      });
+
+      // Film grain, redrawn a few times a second
+      const grain = document.getElementById('grain') as HTMLCanvasElement;
+      const gctx = grain.getContext('2d');
+      const noise = () => {
+        if (!gctx) return;
+        const g = gctx.createImageData(grain.width, grain.height);
+        for (let i = 0; i < g.data.length; i += 4) {
+          const v = Math.random() * 255;
+          g.data[i] = g.data[i + 1] = g.data[i + 2] = v;
+          g.data[i + 3] = 255;
+        }
+        gctx.putImageData(g, 0, 0);
+      };
+      noise();
+      if (!still) setInterval(noise, 90);
+
+      // 2. Hover: room dims around the target, reticle locks on, tooltip appears.
+      const tip = document.getElementById('tip')!;
+      const tipTitle = document.getElementById('tip-title')!;
+      const tipText = document.getElementById('tip-text')!;
+      document.querySelectorAll<SVGAElement>('.hit').forEach((a) => {
+        const show = () => {
+          const x = +a.dataset.x!, y = +a.dataset.y!, w = +a.dataset.w!, h = +a.dataset.h!;
+          stage.style.setProperty('--fx', `${((x + w / 2) / 1920) * 100}%`);
+          stage.style.setProperty('--fy', `${((y + h / 2) / 1080) * 100}%`);
+          stage.style.setProperty('--fr', `${(Math.max(w, h) / 1920) * 62}%`);
+          stage.classList.add('focus');
+          tipTitle.textContent = a.dataset.title!;
+          tipText.textContent = a.dataset.text!;
+          const below = y < 500;
+          tip.style.left = `${Math.min(Math.max((x + w / 2) / 1920, 0.14), 0.86) * 100}%`;
+          tip.style.top = `${((below ? y + h + 24 : y - 24) / 1080) * 100}%`;
+          tip.classList.toggle('above', !below);
+          if (!tip.classList.contains('on') || tipTitle.dataset.last !== a.dataset.title) sfx('hover', 0.25);
+          tipTitle.dataset.last = a.dataset.title!;
+          tip.classList.add('on');
+        };
+        const hide = () => {
+          stage.classList.remove('focus');
+          tip.classList.remove('on');
+        };
+        a.addEventListener('pointerenter', show);
+        a.addEventListener('focus', show);
+        a.addEventListener('pointerleave', hide);
+        a.addEventListener('blur', hide);
+      });
+
+      // 3. Click: quick VHS fast-forward before leaving.
+      const ff = document.getElementById('ff')!;
+      document.addEventListener('click', (e) => {
+        const a = (e.target as Element).closest('a');
+        if (!a || still || e.metaKey || e.ctrlKey || e.shiftKey || a.target === '_blank') return;
+        const href = a.getAttribute('href') || a.getAttribute('xlink:href');
+        if (!href || href.startsWith('http')) return;
+        e.preventDefault();
+        sfx('click', 0.4);
+        sfx('ff', 0.3);
+        ff.classList.add('on');
+        setTimeout(() => (location.href = href), 420);
+      });
+      window.addEventListener('pageshow', () => ff.classList.remove('on'));
+
+      // 4. Live clock on the alarm clock, VHS timecode in the corner.
+      const clock = document.getElementById('clock')!;
+      const tc = document.getElementById('tc')!;
+      const t0 = performance.now();
+      const pad = (n: number) => String(n).padStart(2, '0');
+      const tick = () => {
+        const d = new Date();
+        clock.textContent = `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+        const s = Math.floor((performance.now() - t0) / 1000);
+        tc.textContent = `SP ${pad(Math.floor(s / 3600))}:${pad(Math.floor(s / 60) % 60)}:${pad(s % 60)}`;
+      };
+      tick();
+      setInterval(tick, 1000);
+    </script>
+
+    <style>
+      :root {
+        --night: #0d0718;
+        --pink: #ff3d8b;
+        --teal: #22e1d6;
+        --violet: #b06bff;
+        --amber: #ffb35c;
+        --paper: #f3eee4;
+        --w: min(100vw, 177.78svh);
+        --u: calc(var(--w) / 1920);
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: var(--night);
+        color: var(--paper);
+        font-family: 'Pixelify Sans', system-ui, sans-serif;
+        overflow-x: hidden;
+      }
+      a {
+        color: inherit;
+      }
+
+      /* ---------- the stage ---------- */
+      .stage {
+        position: relative;
+        width: var(--w);
+        aspect-ratio: 16 / 9;
+        margin: 0 auto;
+        overflow: hidden;
+        background: var(--night);
+      }
+      #anim {
+        image-rendering: pixelated;
+        pointer-events: none;
+      }
+      .hd #anim {
+        image-rendering: auto;
+      }
+      #scene,
+      #px,
+      #anim,
+      .hits {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        display: block;
+      }
+      #px {
+        image-rendering: pixelated;
+        opacity: 0;
+        /* cheap chromatic aberration */
+        filter: drop-shadow(calc(var(--u) * 3) 0 0 rgb(255 0 90 / 0.28)) drop-shadow(calc(var(--u) * -3) 0 0 rgb(0 220 255 / 0.28));
+      }
+      .pixel #px {
+        opacity: 1;
+      }
+      .pixel #scene {
+        visibility: hidden;
+      }
+      .pixel.hd #px {
+        opacity: 0;
+      }
+      .pixel.hd #scene {
+        visibility: visible;
+      }
+
+      /* everything placed in scene coordinates */
+      .fx > *,
+      .labels span,
+      .postit {
+        position: absolute;
+        left: calc(var(--x) / 1920 * 100%);
+        top: calc(var(--y) / 1080 * 100%);
+      }
+      .fx {
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+      }
+      .led {
+        width: calc(var(--u) * 22);
+        height: calc(var(--u) * 22);
+        margin: calc(var(--u) * -11) 0 0 calc(var(--u) * -11);
+        border-radius: 50%;
+        background: radial-gradient(circle, var(--c) 0 30%, transparent 70%);
+        animation: blink var(--t) steps(1) infinite;
+        mix-blend-mode: screen;
+      }
+      .smoke,
+      .steam {
+        width: calc(var(--u) * 12);
+        height: calc(var(--u) * 12);
+        background: rgb(230 220 255 / 0.5);
+        animation: rise 2.6s linear infinite;
+      }
+      .steam {
+        background: rgb(255 255 255 / 0.35);
+        animation-duration: 3.4s;
+      }
+      .s2 {
+        animation-delay: -0.9s;
+      }
+      .s3 {
+        animation-delay: -1.7s;
+      }
+      .crt,
+      .scope,
+      .clock,
+      .neon {
+        width: calc(var(--u) * var(--w));
+        height: calc(var(--u) * var(--h));
+      }
+      .crt {
+        background: repeating-linear-gradient(transparent 0 calc(var(--u) * 6), rgb(0 0 0 / 0.25) calc(var(--u) * 6) calc(var(--u) * 9));
+        animation: flick 0.12s steps(2) infinite;
+      }
+      .crt::after {
+        content: '';
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(transparent, rgb(77 255 136 / 0.18), transparent);
+        height: 30%;
+        animation: roll 3s linear infinite;
+      }
+      .scope {
+        overflow: hidden;
+      }
+      .scope path {
+        fill: none;
+        stroke: var(--teal);
+        stroke-width: 3;
+        filter: drop-shadow(0 0 3px var(--teal));
+        animation: wave 1.6s linear infinite;
+      }
+      .clock {
+        display: grid;
+        place-items: center;
+        font-family: 'VT323', monospace;
+        font-size: calc(var(--u) * 44);
+        color: #ff3a3a;
+        text-shadow: 0 0 calc(var(--u) * 8) #ff2020;
+        letter-spacing: 0.05em;
+      }
+      .neon {
+        border-radius: calc(var(--u) * 40);
+        box-shadow: 0 0 calc(var(--u) * 60) calc(var(--u) * 10) rgb(255 61 139 / 0.35);
+        animation: neon 5s steps(1) infinite;
+      }
+
+      .labels span {
+        transform: translate(-50%, 0);
+        font-family: 'Silkscreen', monospace;
+        font-size: max(8px, calc(var(--u) * 15));
+        padding: calc(var(--u) * 2) calc(var(--u) * 8);
+        background: #111;
+        color: #f2f2f2;
+        border-radius: 2px;
+        white-space: nowrap;
+        box-shadow: 0 calc(var(--u) * 3) 0 rgb(0 0 0 / 0.5);
+      }
+
+      /* focus dimmer (the "slow-mo" look) */
+      .dim {
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+        background: rgb(12 4 28 / 0.6);
+        backdrop-filter: saturate(0.4);
+        opacity: 0;
+        transition: opacity 0.25s;
+        -webkit-mask-image: radial-gradient(circle at var(--fx, 50%) var(--fy, 50%), transparent var(--fr, 10%), #000 calc(var(--fr, 10%) + 8%));
+        mask-image: radial-gradient(circle at var(--fx, 50%) var(--fy, 50%), transparent var(--fr, 10%), #000 calc(var(--fr, 10%) + 8%));
+      }
+      .focus .dim {
+        opacity: 1;
+      }
+
+      .hit {
+        cursor: crosshair;
+        outline: none;
+      }
+      .reticle path {
+        fill: none;
+        stroke: #fff;
+        stroke-width: 8;
+        filter: drop-shadow(0 0 6px var(--pink));
+      }
+      .reticle {
+        opacity: 0;
+        transform-box: fill-box;
+        transform-origin: center;
+        transform: scale(1.12);
+        transition: opacity 0.15s, transform 0.25s cubic-bezier(0.2, 1.5, 0.4, 1);
+      }
+      .hit:hover .reticle,
+      .hit:focus-visible .reticle {
+        opacity: 1;
+        transform: scale(1);
+        animation: lock 0.9s ease-in-out 0.25s infinite;
+      }
+
+      /* post-its */
+      .notes {
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+      }
+      .postit {
+        pointer-events: auto;
+        width: calc(var(--u) * var(--w));
+        padding: calc(var(--u) * 26) calc(var(--u) * 20) calc(var(--u) * 18);
+        transform: rotate(var(--r));
+        color: #2a1a10;
+        font-size: max(9px, calc(var(--u) * 21));
+        line-height: 1.25;
+        box-shadow: calc(var(--u) * 6) calc(var(--u) * 8) 0 rgb(0 0 0 / 0.35);
+        transition: transform 0.2s;
+        animation: stick 0.5s cubic-bezier(0.2, 1.6, 0.4, 1) both;
+      }
+      .postit:hover {
+        transform: rotate(0deg) translateY(calc(var(--u) * -6));
+      }
+      .postit p {
+        margin: 0;
+      }
+      .postit h1 {
+        font-family: 'Pixelify Sans', sans-serif;
+        font-weight: 700;
+        font-size: max(14px, calc(var(--u) * 44));
+        line-height: 1;
+        margin: 0 0 calc(var(--u) * 10);
+      }
+      .postit .links {
+        margin-top: calc(var(--u) * 8);
+        font-weight: 700;
+      }
+      .postit .links a {
+        text-decoration: underline;
+      }
+      .tape {
+        position: absolute;
+        top: calc(var(--u) * -10);
+        left: 50%;
+        width: 40%;
+        height: calc(var(--u) * 22);
+        transform: translateX(-50%) rotate(-3deg);
+        background: rgb(255 255 255 / 0.45);
+      }
+      .yellow {
+        background: #ffd84a;
+      }
+      .pink {
+        background: #ff8fc0;
+      }
+      .blue {
+        background: #8fd6ff;
+      }
+      .green {
+        background: #9cf09a;
+      }
+      .postit:nth-child(2) {
+        animation-delay: 0.15s;
+      }
+      .postit:nth-child(3) {
+        animation-delay: 0.3s;
+      }
+      .postit:nth-child(4) {
+        animation-delay: 0.45s;
+      }
+
+      /* tooltip, game dialog style */
+      .tooltip {
+        position: absolute;
+        z-index: 6;
+        transform: translate(-50%, 0) scale(0.96);
+        width: max-content;
+        max-width: min(340px, 40%);
+        display: grid;
+        gap: 4px;
+        padding: 10px 14px;
+        background: #0b0614;
+        border: 3px solid #fff;
+        box-shadow: 0 0 0 3px #0b0614, 6px 6px 0 3px rgb(255 61 139 / 0.6);
+        font-family: 'VT323', monospace;
+        font-size: 1.15rem;
+        line-height: 1.15;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.12s, transform 0.12s;
+      }
+      .tooltip.above {
+        transform: translate(-50%, -100%) scale(0.96);
+      }
+      .tooltip.on {
+        opacity: 1;
+        transform: translate(-50%, 0) scale(1);
+      }
+      .tooltip.above.on {
+        transform: translate(-50%, -100%) scale(1);
+      }
+      .t-key {
+        color: var(--teal);
+        font-size: 0.95rem;
+      }
+      .tooltip strong {
+        font-size: 1.6rem;
+        font-weight: 400;
+        color: #fff;
+        text-shadow: 2px 0 rgb(255 0 90 / 0.7), -2px 0 rgb(0 220 255 / 0.7);
+      }
+
+      /* VHS OSD + menu */
+      .osd {
+        position: absolute;
+        top: 2.4%;
+        left: 2%;
+        display: grid;
+        font-family: 'VT323', monospace;
+        font-size: max(14px, calc(var(--u) * 40));
+        line-height: 1;
+        color: #fff;
+        text-shadow: 2px 2px 0 #000;
+        pointer-events: none;
+      }
+      .play {
+        animation: blink 2s steps(1) infinite;
+      }
+      .menu {
+        position: absolute;
+        top: 2.4%;
+        right: 2%;
+        z-index: 5;
+        display: flex;
+        gap: 4px;
+        font-family: 'VT323', monospace;
+        font-size: max(14px, calc(var(--u) * 30));
+      }
+      .menu a,
+      .menu button {
+        font: inherit;
+        color: #fff;
+        text-decoration: none;
+        padding: 0 10px;
+        background: rgb(11 6 20 / 0.7);
+        border: 2px solid rgb(255 255 255 / 0.25);
+        cursor: pointer;
+      }
+      .menu a:hover,
+      .menu button:hover {
+        background: var(--pink);
+        border-color: #fff;
+      }
+      .menu button {
+        color: var(--teal);
+      }
+      #grain {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        pointer-events: none;
+        image-rendering: pixelated;
+        opacity: 0.07;
+        mix-blend-mode: overlay;
+      }
+      .scan {
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+        background:
+          repeating-linear-gradient(transparent 0 2px, rgb(0 0 0 / 0.18) 2px 3px),
+          radial-gradient(ellipse at center, transparent 60%, rgb(0 0 0 / 0.45));
+        mix-blend-mode: multiply;
+      }
+      .scan::after {
+        content: '';
+        position: absolute;
+        left: 0;
+        right: 0;
+        height: 3%;
+        background: rgb(255 255 255 / 0.05);
+        animation: track 7s linear infinite;
+      }
+
+      /* fast-forward transition */
+      .ff {
+        position: absolute;
+        inset: 0;
+        z-index: 20;
+        display: grid;
+        place-items: center;
+        pointer-events: none;
+        opacity: 0;
+        background: repeating-linear-gradient(transparent 0 6px, rgb(255 255 255 / 0.12) 6px 8px), rgb(11 6 20 / 0.55);
+      }
+      .ff span {
+        font-family: 'VT323', monospace;
+        font-size: calc(var(--u) * 180);
+        color: #fff;
+        text-shadow: 4px 0 var(--pink), -4px 0 var(--teal);
+      }
+      .ff.on {
+        opacity: 1;
+        animation: ff 0.42s steps(6) both;
+      }
+      .ff.on ~ *,
+      .stage:has(.ff.on) #px {
+        filter: blur(1px) hue-rotate(20deg);
+      }
+
+      /* ---------- below the stage ---------- */
+      .inv {
+        max-width: 1100px;
+        margin: 0 auto;
+        padding: 56px 16px 40px;
+      }
+      .inv h2 {
+        font-family: 'VT323', monospace;
+        font-weight: 400;
+        font-size: 2.6rem;
+        letter-spacing: 0.1em;
+        margin: 0 0 18px;
+        color: #fff;
+        text-shadow: 3px 0 rgb(255 0 90 / 0.6), -3px 0 rgb(0 220 255 / 0.6);
+      }
+      .inv ul {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+        display: grid;
+        gap: 10px;
+      }
+      @media (min-width: 760px) {
+        .inv ul {
+          grid-template-columns: repeat(2, 1fr);
+        }
+      }
+      .inv li a {
+        display: flex;
+        gap: 14px;
+        align-items: flex-start;
+        padding: 12px;
+        text-decoration: none;
+        background: #160d26;
+        border: 3px solid #2d1f45;
+        transition: border-color 0.15s, transform 0.15s;
+      }
+      .inv li a:hover {
+        border-color: var(--pink);
+        transform: translate(-2px, -2px);
+        box-shadow: 4px 4px 0 var(--pink);
+      }
+      .slot {
+        flex: none;
+        width: 48px;
+        height: 48px;
+        display: grid;
+        place-items: center;
+        font-family: 'VT323', monospace;
+        font-size: 1.5rem;
+        background: #0b0614;
+        border: 3px solid var(--c);
+        color: var(--c);
+        box-shadow: inset 0 0 12px color-mix(in srgb, var(--c) 40%, transparent);
+      }
+      .meta {
+        display: grid;
+        gap: 2px;
+      }
+      .meta em {
+        font-style: normal;
+        font-family: 'Silkscreen', monospace;
+        font-size: 0.72rem;
+        color: var(--amber);
+      }
+      .meta strong {
+        font-size: 1.25rem;
+      }
+      .meta span {
+        color: #bfb3d6;
+        font-size: 0.95rem;
+      }
+      .mobile-notes {
+        display: none;
+      }
+      .pn {
+        color: #2a1a10;
+        padding: 14px 16px;
+        margin: 0 0 12px;
+        box-shadow: 5px 6px 0 rgb(0 0 0 / 0.4);
+      }
+      .pn:nth-child(2) {
+        transform: rotate(1deg);
+      }
+      .pn:nth-child(1) {
+        transform: rotate(-1deg);
+      }
+      .inv footer {
+        display: flex;
+        gap: 20px;
+        justify-content: center;
+        margin-top: 48px;
+        font-family: 'VT323', monospace;
+        font-size: 1.3rem;
+      }
+
+      .credits {
+        text-align: center;
+        color: #7d7194;
+        font-size: 0.85rem;
+        margin-top: 18px;
+      }
+      .draft-tag {
+        position: fixed;
+        left: 12px;
+        bottom: 12px;
+        z-index: 30;
+        font-family: 'VT323', monospace;
+        font-size: 1.1rem;
+        padding: 2px 10px;
+        background: var(--pink);
+        color: #fff;
+        text-decoration: none;
+        border: 2px solid #fff;
+      }
+
+      /* phones: scene stays as the hero image, notes and labels move below */
+      @media (max-width: 820px) {
+        .notes,
+        .labels,
+        .tooltip {
+          display: none;
+        }
+        .menu {
+          position: static;
+        }
+        .stage {
+          width: 100vw;
+        }
+        .mobile-notes {
+          display: block;
+          margin-bottom: 36px;
+        }
+        .menu {
+          position: absolute;
+          top: auto;
+          bottom: 3%;
+          right: 2%;
+          flex-wrap: wrap;
+          justify-content: flex-end;
+        }
+      }
+
+      @keyframes blink {
+        50% {
+          opacity: 0.15;
+        }
+      }
+      @keyframes rise {
+        from {
+          transform: translate(0, 0);
+          opacity: 0.8;
+        }
+        to {
+          transform: translate(calc(var(--u) * 20), calc(var(--u) * -120));
+          opacity: 0;
+        }
+      }
+      @keyframes flick {
+        50% {
+          opacity: 0.85;
+        }
+      }
+      @keyframes roll {
+        from {
+          transform: translateY(-100%);
+        }
+        to {
+          transform: translateY(340%);
+        }
+      }
+      @keyframes wave {
+        to {
+          transform: translateX(-60px);
+        }
+      }
+      @keyframes neon {
+        0%,
+        100% {
+          opacity: 1;
+        }
+        61% {
+          opacity: 0.3;
+        }
+        63% {
+          opacity: 1;
+        }
+        65% {
+          opacity: 0.4;
+        }
+        67% {
+          opacity: 1;
+        }
+      }
+      @keyframes lock {
+        50% {
+          transform: scale(1.03);
+        }
+      }
+      @keyframes stick {
+        from {
+          opacity: 0;
+          transform: rotate(var(--r)) translateY(calc(var(--u) * -30)) scale(1.1);
+        }
+        to {
+          opacity: 1;
+          transform: rotate(var(--r));
+        }
+      }
+      @keyframes track {
+        from {
+          top: -5%;
+        }
+        to {
+          top: 105%;
+        }
+      }
+      @keyframes ff {
+        0% {
+          clip-path: inset(0 100% 0 0);
+        }
+        100% {
+          clip-path: inset(0 0 0 0);
+        }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        *,
+        *::before,
+        *::after {
+          animation: none !important;
+          transition: none !important;
+        }
+      }
+    </style>
+  </body>
+</html>

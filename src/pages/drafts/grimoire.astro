@@ -1,0 +1,3335 @@
+---
+// Draft: Grimoire. A cyberdeck crossed with a forbidden spellbook, now bound as an actual book.
+// Standalone page on purpose: no shared layout, all styles live here.
+// Without JS the pages simply stack. With JS they get bound into leaves you can flip.
+import { site, url } from '../../site';
+
+// Polar helper. 0 degrees points straight up.
+const P = (r: number, deg: number) => {
+  const a = ((deg - 90) * Math.PI) / 180;
+  return `${(r * Math.cos(a)).toFixed(2)},${(r * Math.sin(a)).toFixed(2)}`;
+};
+
+// Tiny deterministic RNG so the sigil looks the same on every build.
+let seed = 1729;
+const rnd = () => {
+  seed = (seed * 16807) % 2147483647;
+  return seed / 2147483647;
+};
+
+// Outer ring of tick marks.
+const ticks = Array.from({ length: 144 }, (_, i) => ({
+  deg: i * 2.5,
+  len: i % 12 === 0 ? 16 : i % 4 === 0 ? 9 : 5,
+  major: i % 12 === 0,
+}));
+
+// Glyph markers between the ticks and the text ring.
+const glyphs = Array.from({ length: 12 }, (_, i) => ({ deg: i * 30 + 15, kind: i % 3 }));
+
+// Circuit traces radiating out of the inner ring, with a bend and a via at the end.
+const traces = Array.from({ length: 30 }, (_, i) => {
+  const base = i * 12 + (rnd() - 0.5) * 4;
+  const r0 = 130;
+  const r1 = 142 + rnd() * 24;
+  const bend = (rnd() < 0.5 ? -1 : 1) * (3 + rnd() * 5);
+  const r2 = r1 + 10;
+  const r3 = Math.min(r2 + 10 + rnd() * 40, 206);
+  const end = P(r3, base + bend);
+  const [vx, vy] = end.split(',');
+  return { d: `M${P(r0, base)} L${P(r1, base)} L${P(r2, base + bend)} L${end}`, vx, vy, big: rnd() > 0.7 };
+});
+
+// Seven pointed star {7/3}.
+const hept = Array.from({ length: 7 }, (_, k) => P(122, ((k * 3) % 7) * (360 / 7)));
+const heptPath = `M${hept.join(' L')} Z`;
+
+// Wobbly wax seal outline.
+const sealPath =
+  'M' +
+  Array.from({ length: 40 }, (_, i) => {
+    const r = 44 + (rnd() - 0.5) * 5 + (i % 5 === 0 ? 2 : 0);
+    return P(r, i * 9);
+  }).join(' L') +
+  ' Z';
+
+const ringText =
+  '01010011 01010011  RUN · SEE · LEARN  ERRAND ✶ TRACEBANK ✶ PROJECT Z ✶ REMINDERS  0x5353  WHERE DID THE AGENT GO WRONG  ✶  ';
+
+// The sigil shows up three times (altar, frontispiece plate, cover), so it is built as a string once.
+const sigilOuter = (id: string, spin = true) =>
+  `<svg class="sigil-outer${spin ? ' spin' : ''}" viewBox="-300 -300 600 600" aria-hidden="true" focusable="false">` +
+  `<circle r="292" class="ln-gold faint"/><circle r="286" class="ln-gold"/>` +
+  `<g class="ticks">${ticks
+    .map(
+      (t) =>
+        `<line x1="0" y1="-286" x2="0" y2="${-286 + t.len}" transform="rotate(${t.deg})" class="${t.major ? 'tk-major' : 'tk'}"/>`
+    )
+    .join('')}</g>` +
+  `<circle r="262" class="ln-gold dashed"/>` +
+  `<g class="glyphs">${glyphs
+    .map((g) => {
+      const shape =
+        g.kind === 0
+          ? '<path d="M0,-6 L6,0 L0,6 L-6,0 Z" class="gl"/>'
+          : g.kind === 1
+            ? '<circle r="4.5" class="gl"/>'
+            : '<path d="M0,-6 L5.5,4 L-5.5,4 Z" class="gl"/>';
+      return `<g transform="rotate(${g.deg}) translate(0 -251)">${shape}</g>`;
+    })
+    .join('')}</g>` +
+  `<path id="${id}" d="M0,-226 a226,226 0 1,1 0,452 a226,226 0 1,1 0,-452" fill="none"/>` +
+  `<text class="ring-text"><textPath href="#${id}" textLength="1410" lengthAdjust="spacing">${ringText}</textPath></text>` +
+  `<circle r="214" class="ln-verd"/></svg>`;
+
+const sigilInner = (spin = true) =>
+  `<svg class="sigil-inner${spin ? ' spin' : ''}" viewBox="-300 -300 600 600" aria-hidden="true" focusable="false">` +
+  `<g class="traces">${traces
+    .map((t) => `<path d="${t.d}"/><circle cx="${t.vx}" cy="${t.vy}" r="${t.big ? 4 : 2.6}"/>`)
+    .join('')}</g>` +
+  `<circle r="130" class="ln-gold"/><circle r="124" class="ln-gold faint"/>` +
+  `<path d="${heptPath}" class="ln-gold hept"/><circle r="72" class="ln-blood"/><circle r="46" class="ln-gold faint"/></svg>`;
+
+const cards = [
+  {
+    n: 'I',
+    arcana: 'The Courier',
+    name: 'Errand',
+    status: 'building',
+    year: '2026',
+    href: url('/projects/errand'),
+    emblem: 'courier',
+    desc: 'Send your model on fewer errands. A marketplace where big models hand off tasks to cheaper specialist models.',
+  },
+  {
+    n: 'II',
+    arcana: 'The Archivist',
+    name: 'tracebank',
+    status: 'building',
+    year: '2026',
+    href: url('/projects/tracebank'),
+    emblem: 'archivist',
+    desc: 'A plugin that collects consented, long-horizon coding agent traces, scrubbed on your own machine.',
+  },
+  {
+    n: 'III',
+    arcana: 'The Watcher',
+    name: 'Project Z',
+    status: 'building',
+    year: '2026',
+    href: url('/projects/project-z'),
+    emblem: 'watcher',
+    desc: 'A self-hostable platform for agents that get better over time. Run, see, learn.',
+  },
+  {
+    n: 'IV',
+    arcana: 'The Herald',
+    name: 'Reminders',
+    status: 'shipped',
+    year: '2026',
+    href: url('/projects/reminders'),
+    emblem: 'herald',
+    desc: "A small Windows app so birthdays, events and tasks don't slip through.",
+  },
+];
+
+const codex = [
+  {
+    num: 'i',
+    folio: 'f. 01r',
+    title: "Overrides the chain of thought doesn't show",
+    status: 'in progress',
+    note: 'when the reasoning says one thing and the answer quietly does another',
+  },
+  {
+    num: 'ii',
+    folio: 'f. 02v',
+    title: 'Why do LLMs all sound the same?',
+    status: 'early',
+    note: 'mode collapse, but for prose and ideas',
+  },
+  {
+    num: 'iii',
+    folio: 'f. 03r',
+    title: 'What if malloc filled holes from the top?',
+    status: 'writing up',
+    note: 'top down vs bottom up hole placement, measured',
+  },
+];
+
+const pacts = [
+  { repo: 'kubeflow/pipelines', kind: 'merged PR', sealed: true },
+  { repo: 'cortexproject/cortex', kind: 'merged PR', sealed: true },
+  { repo: 'kubeflow/website', kind: 'merged PR', sealed: true },
+  { repo: 'Kaggle: Name That LLM', kind: 'ongoing', sealed: false },
+];
+
+// Card border: clipped corners plus little trace stubs with pads.
+const frame = 'M7,2 H93 L98,7 V153 L93,158 H7 L2,153 V7 Z';
+const stubs =
+  'M50,2 V7 H60 M50,158 V153 H40 M2,44 H7 V58 M98,116 H93 V102 M20,2 V5 H28 M80,158 V155 H72 M2,120 H5 V128 M98,30 H95 V22';
+
+// Page plan. Page 0 is the front cover, the last page is the back cover.
+// On desktop each leaf holds two pages (front, back). On phones every page is its own leaf.
+// Project cards sit on pages 5, 7, 9, 11 with their readings facing them.
+const cardPage = (i: number) => 5 + i * 2;
+
+// Chapters for the contents page and the ribbon.
+const chapters = [
+  { roman: 'I', name: 'Arcana', em: 'projects', page: 4 },
+  { roman: 'II', name: 'Codex', em: 'research', page: 13 },
+  { roman: 'III', name: 'Scrolls', em: 'writing', page: 15 },
+  { roman: 'IV', name: 'Pacts', em: 'open source', page: 16 },
+];
+
+const ribbonList = [
+  { label: 'The cover', page: 0 },
+  { label: "Hey, I'm Shashvat", page: 2 },
+  { label: 'Index', page: 3 },
+  { label: 'I · The Arcana', page: 4 },
+  { label: 'II · The Codex', page: 13 },
+  { label: 'III · The Scrolls', page: 15 },
+  { label: 'IV · Pacts Sealed', page: 16 },
+  { label: 'Colophon', page: 17 },
+  { label: 'The back cover', page: 19 },
+];
+
+const leather = url('/assets/tex/leather.jpg');
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Grimoire · {site.name}</title>
+    <meta name="description" content={site.description} />
+    <meta name="robots" content="noindex" />
+    <meta name="theme-color" content="#0a0807" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;500;600;700&family=EB+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&family=JetBrains+Mono:wght@400;500&display=swap"
+      rel="stylesheet"
+    />
+    <script is:inline>document.documentElement.classList.add('js');</script>
+  </head>
+  <body style={`--leather: url('${leather}')`}>
+    <!-- Shared SVG defs. Kept rendered (0x0) so gradients work everywhere. -->
+    <svg class="defs" width="0" height="0" aria-hidden="true" focusable="false">
+      <defs>
+        <radialGradient id="g-wax" cx="38%" cy="34%" r="70%">
+          <stop offset="0" stop-color="#b8343a" />
+          <stop offset=".55" stop-color="#7a1a1f" />
+          <stop offset="1" stop-color="#3d0a0d" />
+        </radialGradient>
+        <linearGradient id="g-gold" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stop-color="#e3c47e" />
+          <stop offset=".5" stop-color="#b38f48" />
+          <stop offset="1" stop-color="#6f5628" />
+        </linearGradient>
+        <symbol id="seal" viewBox="-50 -50 100 100">
+          <path d={sealPath} fill="url(#g-wax)" />
+          <circle r="31" fill="none" stroke="#3d0a0d" stroke-width="3" opacity=".7" />
+          <circle r="31" fill="none" stroke="#d26a6f" stroke-width=".8" opacity=".35" transform="translate(-1 -1)" />
+          <path d="M-15,1 L-5,11 L15,-11" fill="none" stroke="#2a0608" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" />
+          <path d="M-15,0 L-5,10 L15,-12" fill="none" stroke="#e08a8e" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" opacity=".55" />
+          <circle cx="-15" cy="0" r="3" fill="#2a0608" />
+          <circle cx="15" cy="-12" r="3" fill="#2a0608" />
+          <ellipse cx="-16" cy="-22" rx="12" ry="5" fill="#fff" opacity=".12" transform="rotate(-30 -16 -22)" />
+        </symbol>
+        <symbol id="fleuron" viewBox="0 0 40 40">
+          <path d="M2,2 H22 M2,2 V22" />
+          <path d="M2,2 Q16 6 18,18 Q6 16 2,2 Z" class="fl-leaf" />
+          <circle cx="24" cy="2" r="1.6" class="fl-dot" />
+          <circle cx="2" cy="24" r="1.6" class="fl-dot" />
+          <path d="M7,7 L12,12" />
+        </symbol>
+      </defs>
+    </svg>
+
+    <!-- The desk the book lies on: candle glow, a slow altar sigil, grain. -->
+    <div class="desk" aria-hidden="true">
+      <div class="candle"></div>
+      <div class="sigil sigil--altar">
+        <Fragment set:html={sigilOuter('ring-altar') + sigilInner()} />
+      </div>
+      <div class="grain"></div>
+      <div class="taper"><span class="wick"></span><span class="flame"></span></div>
+    </div>
+
+    <a class="draft-tag" href={url('/drafts')}>Draft: Grimoire</a>
+
+    <div class="stage" id="stage">
+      <div class="book" id="book" aria-label="The codex of Shashvat Singh" role="region">
+        <!-- p0 · front cover -->
+        <section class="page cover" id="p0" data-chapter="Cover">
+          <div class="cover-art">
+            <svg class="fleuron tl" aria-hidden="true"><use href="#fleuron" /></svg>
+            <svg class="fleuron tr" aria-hidden="true"><use href="#fleuron" /></svg>
+            <svg class="fleuron bl" aria-hidden="true"><use href="#fleuron" /></svg>
+            <svg class="fleuron br" aria-hidden="true"><use href="#fleuron" /></svg>
+            <p class="cover-kicker">Liber machinae</p>
+            <div class="sigil sigil--cover" aria-hidden="true">
+              <Fragment set:html={sigilOuter('ring-cover', false) + sigilInner(false)} />
+            </div>
+            <p class="cover-title">
+              <span class="cover-pre">The codex of</span>
+              <span class="cover-name">Shashvat Singh</span>
+            </p>
+            <p class="cover-hint js-only">click, tap or press → to open</p>
+          </div>
+        </section>
+
+        <!-- p1 · frontispiece, pasted inside the front board -->
+        <section class="page frontis verso pastedown" id="p1" data-chapter="Frontispiece">
+          <div class="page-body">
+            <div class="page-inner">
+              <figure class="plate" aria-hidden="true">
+                <div class="sigil sigil--plate">
+                  <Fragment set:html={sigilOuter('ring-plate') + sigilInner()} />
+                </div>
+              </figure>
+              <p class="kicker mono">MS. 2026 · folio i · liber machinae</p>
+              <p class="howto js-only">Turn the pages with the arrow keys, the page corners or a swipe.</p>
+            </div>
+          </div>
+        </section>
+
+        <!-- p2 · title page -->
+        <section class="page title-page recto" id="p2" data-chapter="Title">
+          <div class="page-body">
+            <div class="page-inner">
+              <h1 class="title">
+                <span class="title-pre">The codex of</span>
+                <span class="title-line">Shashvat</span>
+                <span class="title-line">Singh</span>
+              </h1>
+              <div class="flourish" aria-hidden="true">
+                <svg viewBox="0 0 240 20">
+                  <path d="M0,10 H96 M144,10 H240" />
+                  <path d="M104,10 L120,2 L136,10 L120,18 Z" />
+                  <circle cx="120" cy="10" r="2.5" class="dot" />
+                  <circle cx="96" cy="10" r="2" class="dot" />
+                  <circle cx="144" cy="10" r="2" class="dot" />
+                </svg>
+              </div>
+              <p class="lede">Hey, I'm Shashvat.</p>
+              <p class="bio">
+                <span class="initial" aria-hidden="true">I</span><span class="sr">I</span> build stuff around LLM agents: how
+                they run, how you figure out where they went wrong and how they get better over time. On the research side I
+                poke at the insides of reasoning models, and when I can I contribute to open source AI infra.
+              </p>
+            </div>
+          </div>
+          <p class="folio-num" aria-hidden="true">2</p>
+        </section>
+
+        <!-- p3 · contents -->
+        <section class="page contents-page verso" id="p3" data-chapter="Index">
+          <p class="run-head" aria-hidden="true">The codex of Shashvat Singh</p>
+          <div class="page-body">
+            <div class="page-inner">
+              <nav class="contents" aria-label="Contents">
+                <p class="contents-head">Index</p>
+                <ol>
+                  {chapters.map((c) => (
+                    <li>
+                      <a href={`#p${c.page}`}>
+                        <span class="roman">{c.roman}</span>
+                        <span class="c-name">{c.name}</span>
+                        <em>{c.em}</em>
+                        <span class="leader" aria-hidden="true"></span>
+                        <span class="pg">{c.page}</span>
+                      </a>
+                    </li>
+                  ))}
+                  <li>
+                    <a href="#p17">
+                      <span class="roman">✶</span>
+                      <span class="c-name">Colophon</span>
+                      <span class="leader" aria-hidden="true"></span>
+                      <span class="pg">17</span>
+                    </a>
+                  </li>
+                </ol>
+                <p class="elsewhere mono">
+                  <a href={site.links.github} rel="me noopener" target="_blank">github/sh4shv4t</a>
+                  <span aria-hidden="true">✶</span>
+                  <a href={site.links.medium} rel="me noopener" target="_blank">medium</a>
+                </p>
+              </nav>
+            </div>
+          </div>
+          <p class="folio-num" aria-hidden="true">3</p>
+        </section>
+
+        <!-- p4 · chapter I opener -->
+        <section class="page opener recto" id="p4" data-chapter="The Arcana">
+          <p class="run-head" aria-hidden="true">Liber primus</p>
+          <div class="page-body">
+            <div class="page-inner">
+              <header class="opener-head" id="arcana">
+                <span class="opener-num" aria-hidden="true">I</span>
+                <span class="sec-num mono">§ I</span>
+                <h2>The Arcana</h2>
+                <p class="sec-sub">Projects. What I'm building right now, plus one small thing that shipped.</p>
+              </header>
+              <div class="fan" aria-hidden="true"><span></span><span></span><span></span><span></span></div>
+            </div>
+          </div>
+          <p class="folio-num" aria-hidden="true">4</p>
+        </section>
+
+        <!-- p5 to p12 · one spread per project: the card on the left, the reading on the right -->
+        {cards.map((c, i) => (
+          <>
+            <section class="page card-page verso" id={`p${cardPage(i)}`} data-chapter={`The Arcana · ${c.name}`}>
+              <p class="run-head" aria-hidden="true">The Arcana</p>
+              <div class="page-body">
+                <div class="page-inner">
+                  <a class="card" href={c.href}>
+                    <svg class="card-frame" viewBox="0 0 100 160" preserveAspectRatio="none" aria-hidden="true">
+                      <path d={frame} class="fr-base" />
+                      <path d={stubs} class="fr-base stub" />
+                      <path d={frame} class="fr-lit" pathLength="1" />
+                      <path d={stubs} class="fr-lit stub" pathLength="1" />
+                      <path d={frame} class="fr-packet" pathLength="1" />
+                    </svg>
+                    <span class="card-sheen" aria-hidden="true"></span>
+
+                    <span class="numeral">{c.n}</span>
+
+                    <span class="emblem" aria-hidden="true">
+                      <svg viewBox="0 0 80 80">
+                        <circle cx="40" cy="40" r="36" class="em-halo" />
+                        {c.emblem === 'courier' && (
+                          <>
+                            <path d="M8,26 Q40 6 72,26" class="em-thin" />
+                            <circle cx="24" cy="44" r="14" />
+                            <circle cx="24" cy="44" r="5" class="em-acc" />
+                            <circle cx="62" cy="44" r="7" />
+                            <path d="M39,44 H52" stroke-dasharray="3 3" />
+                            <path d="M49,40 L54,44 L49,48" />
+                            <path d="M14,62 Q40 74 66,62" class="em-thin" />
+                          </>
+                        )}
+                        {c.emblem === 'archivist' && (
+                          <>
+                            <rect x="20" y="14" width="40" height="48" rx="2" />
+                            <path d="M20,30 H60 M20,46 H60" />
+                            <path d="M36,22 H44 M36,38 H44 M36,54 H44" class="em-acc" />
+                            <path d="M40,62 V70 H56" class="em-thin" />
+                            <circle cx="58" cy="70" r="2.4" class="em-dot" />
+                            <path d="M40,62 V70 H24" class="em-thin" />
+                            <circle cx="22" cy="70" r="2.4" class="em-dot" />
+                          </>
+                        )}
+                        {c.emblem === 'watcher' && (
+                          <>
+                            <path d="M10,44 Q40 16 70,44 Q40 72 10,44 Z" />
+                            <circle cx="40" cy="44" r="11" />
+                            <circle cx="40" cy="44" r="4" class="em-acc fill" />
+                            <path d="M40,10 V20 M21,15 L26,23 M59,15 L54,23" class="em-thin" />
+                          </>
+                        )}
+                        {c.emblem === 'herald' && (
+                          <>
+                            <circle cx="40" cy="18" r="3" />
+                            <path d="M27,54 Q27 24 40,22 Q53 24 53,54 Z" />
+                            <path d="M22,54 H58" />
+                            <circle cx="40" cy="60" r="3" class="em-acc fill" />
+                            <path d="M61,30 Q67 38 61,46 M67,25 Q75 38 67,51" class="em-thin" />
+                            <path d="M19,30 Q13 38 19,46 M13,25 Q5 38 13,51" class="em-thin" />
+                          </>
+                        )}
+                      </svg>
+                    </span>
+
+                    <span class="arcana">{c.arcana}</span>
+                    <span class="card-name">{c.name}</span>
+                    <span class="card-meta mono">
+                      <span class={`status ${c.status}`}>{c.status}</span> · {c.year}
+                    </span>
+                  </a>
+                </div>
+              </div>
+              <p class="folio-num" aria-hidden="true">{cardPage(i)}</p>
+            </section>
+
+            <section class="page reading recto" id={`p${cardPage(i) + 1}`} data-chapter={`The Arcana · ${c.name}`}>
+              <p class="run-head" aria-hidden="true">{c.arcana}</p>
+              <div class="page-body">
+                <div class="page-inner">
+                  <p class="reading-num">Arcanum {c.n} · {c.arcana}</p>
+                  <h3 class="reading-name">{c.name}</h3>
+                  <p class="reading-meta mono">
+                    <span class={`status ${c.status}`}>{c.status}</span> · {c.year}
+                  </p>
+                  <div class="flourish small" aria-hidden="true">
+                    <svg viewBox="0 0 240 20">
+                      <path d="M0,10 H96 M144,10 H240" />
+                      <path d="M104,10 L120,2 L136,10 L120,18 Z" />
+                      <circle cx="120" cy="10" r="2.5" class="dot" />
+                    </svg>
+                  </div>
+                  <p class="reading-text">
+                    <span class="initial" aria-hidden="true">{c.desc.charAt(0)}</span><span class="sr">{c.desc.charAt(0)}</span>{c.desc.slice(1)}
+                  </p>
+                  <p class="more"><a href={c.href}>Open the {c.name} page</a></p>
+                </div>
+              </div>
+              <p class="folio-num" aria-hidden="true">{cardPage(i) + 1}</p>
+            </section>
+          </>
+        ))}
+
+        <!-- p13 · chapter II opener -->
+        <section class="page opener verso" id="p13" data-chapter="The Codex">
+          <p class="run-head" aria-hidden="true">Liber secundus</p>
+          <div class="page-body">
+            <div class="page-inner">
+              <header class="opener-head" id="codex">
+                <span class="opener-num" aria-hidden="true">II</span>
+                <span class="sec-num mono">§ II</span>
+                <h2>The Codex</h2>
+                <p class="sec-sub">Research. Open questions I keep poking at.</p>
+              </header>
+              <svg class="star" viewBox="-130 -130 260 260" aria-hidden="true">
+                <circle r="126" />
+                <path d={heptPath} />
+                <circle r="44" class="star-in" />
+              </svg>
+            </div>
+          </div>
+          <p class="folio-num" aria-hidden="true">13</p>
+        </section>
+
+        <!-- p14 · codex entries -->
+        <section class="page codex-page recto" id="p14" data-chapter="The Codex">
+          <p class="run-head" aria-hidden="true">The Codex</p>
+          <div class="page-body">
+            <div class="page-inner">
+              <ol class="codex" role="list">
+                {codex.map((e) => (
+                  <li class="entry">
+                    <a class="entry-main" href={url('/research')}>
+                      <span class="entry-num" aria-hidden="true">{e.num}.</span>
+                      <span class="entry-body">
+                        <span class="folio mono">{e.folio}</span>
+                        <span class="entry-title">{e.title}</span>
+                      </span>
+                    </a>
+                    <aside class="marginalia">
+                      <span class="mono status-note">{e.status}</span>
+                      <span class="note">{e.note}</span>
+                    </aside>
+                  </li>
+                ))}
+              </ol>
+              <p class="more"><a href={url('/research')}>Open the full codex</a></p>
+            </div>
+          </div>
+          <p class="folio-num" aria-hidden="true">14</p>
+        </section>
+
+        <!-- p15 · scrolls -->
+        <section class="page scrolls-page verso" id="p15" data-chapter="The Scrolls">
+          <p class="run-head" aria-hidden="true">Liber tertius</p>
+          <div class="page-body">
+            <div class="page-inner">
+              <header class="sec-head" id="scrolls">
+                <span class="sec-num mono">§ III</span>
+                <h2>The Scrolls</h2>
+                <p class="sec-sub">
+                  Writing. Longer notes from the build and the research, mostly agents, models and the odd systems rabbit
+                  hole.
+                </p>
+              </header>
+              <div class="scrolls">
+                <a class="scroll" href={site.links.medium} target="_blank" rel="me noopener">
+                  <span class="scroll-title">On Medium</span>
+                  <span class="scroll-text">Where the write ups land first.</span>
+                  <span class="scroll-url mono">medium.com/@shashvat.k.singh.16</span>
+                </a>
+                <a class="scroll" href={url('/writing')}>
+                  <span class="scroll-title">The whole shelf</span>
+                  <span class="scroll-text">Every piece in one place, newest on top.</span>
+                  <span class="scroll-url mono">/writing</span>
+                </a>
+              </div>
+            </div>
+          </div>
+          <p class="folio-num" aria-hidden="true">15</p>
+        </section>
+
+        <!-- p16 · pacts -->
+        <section class="page pacts-page recto" id="p16" data-chapter="Pacts Sealed">
+          <p class="run-head" aria-hidden="true">Liber quartus</p>
+          <div class="page-body">
+            <div class="page-inner">
+              <header class="sec-head" id="pacts">
+                <span class="sec-num mono">§ IV</span>
+                <h2>Pacts Sealed</h2>
+                <p class="sec-sub">Open source. Merged PRs in AI infra, plus one quest that's still going.</p>
+              </header>
+              <ul class="pacts" role="list">
+                {pacts.map((p) => (
+                  <li>
+                    <a class={`pact ${p.sealed ? 'sealed' : 'open'}`} href={url('/oss')}>
+                      <span class="seal" aria-hidden="true">
+                        {p.sealed ? (
+                          <svg viewBox="0 0 100 100"><use href="#seal" /></svg>
+                        ) : (
+                          <svg viewBox="-50 -50 100 100" class="unsealed">
+                            <circle r="40" />
+                            <circle r="28" class="inner" />
+                            <path d="M-10,0 H10 M0,-10 V10" />
+                          </svg>
+                        )}
+                      </span>
+                      <span class="pact-body">
+                        <span class="pact-repo mono">{p.repo}</span>
+                        <span class="pact-kind">{p.sealed ? 'sealed · ' : ''}{p.kind}</span>
+                      </span>
+                    </a>
+                  </li>
+                ))}
+              </ul>
+              <p class="more"><a href={url('/oss')}>Read every pact</a></p>
+            </div>
+          </div>
+          <p class="folio-num" aria-hidden="true">16</p>
+        </section>
+
+        <!-- p17 · colophon -->
+        <section class="page colophon verso" id="p17" data-chapter="Colophon">
+          <p class="run-head" aria-hidden="true">The codex of Shashvat Singh</p>
+          <div class="page-body">
+            <div class="page-inner">
+              <div class="flourish small" aria-hidden="true">
+                <svg viewBox="0 0 240 20">
+                  <path d="M0,10 H96 M144,10 H240" />
+                  <path d="M104,10 L120,2 L136,10 L120,18 Z" />
+                  <circle cx="120" cy="10" r="2.5" class="dot" />
+                </svg>
+              </div>
+              <p class="colophon-head">Colophon</p>
+              <p>
+                Set in Cinzel, EB Garamond and JetBrains Mono. Bound in Astro with one scrap of leather, a lot of SVG and
+                plenty of stubbornness.
+              </p>
+              <p class="mono foot-links">
+                <a href={site.links.github} rel="me noopener" target="_blank">github</a>
+                <span aria-hidden="true">✶</span>
+                <a href={site.links.medium} rel="me noopener" target="_blank">medium</a>
+                <span aria-hidden="true">✶</span>
+                <a href={url('/oss')}>oss</a>
+              </p>
+              <p class="mono tiny">© 2026 Shashvat Singh</p>
+            </div>
+          </div>
+          <p class="folio-num" aria-hidden="true">17</p>
+        </section>
+
+        <!-- p18 · finis, pasted inside the back board -->
+        <section class="page finis recto pastedown" id="p18" data-chapter="Finis">
+          <div class="page-body">
+            <div class="page-inner">
+              <span class="finis-seal" aria-hidden="true"><svg viewBox="0 0 100 100"><use href="#seal" /></svg></span>
+              <p class="finis-word">Finis</p>
+              <p class="finis-text">Thanks for reading all the way to the back.</p>
+              <p class="more"><a href="#p0">Back to the cover</a></p>
+            </div>
+          </div>
+        </section>
+
+        <!-- p19 · back cover -->
+        <section class="page cover back-cover" id="p19" data-chapter="Back cover">
+          <div class="cover-art">
+            <svg class="fleuron tl" aria-hidden="true"><use href="#fleuron" /></svg>
+            <svg class="fleuron tr" aria-hidden="true"><use href="#fleuron" /></svg>
+            <svg class="fleuron bl" aria-hidden="true"><use href="#fleuron" /></svg>
+            <svg class="fleuron br" aria-hidden="true"><use href="#fleuron" /></svg>
+            <svg class="stamp" viewBox="-130 -130 260 260" aria-hidden="true">
+              <circle r="126" />
+              <circle r="118" class="thin" />
+              <path d={heptPath} />
+              <circle r="44" />
+            </svg>
+            <p class="cover-kicker back">MS. 2026 · liber machinae</p>
+          </div>
+        </section>
+
+        <!-- Hit zones on the outer edges, the shadow under the book and the ribbon. Only used once bound. -->
+        <div class="book-shadow js-only" aria-hidden="true"></div>
+        <div class="edge prev js-only" aria-hidden="true"></div>
+        <div class="edge next js-only" aria-hidden="true"></div>
+        <button class="ribbon js-only" type="button" aria-controls="toc" aria-expanded="false" aria-label="Chapters">
+          <span class="ribbon-tail" aria-hidden="true"></span>
+        </button>
+      </div>
+
+      <nav class="controls js-only" aria-label="Turn the pages">
+        <button class="ctl prev" type="button" aria-label="Previous page"><span aria-hidden="true">‹</span></button>
+        <button class="ctl toc-btn" type="button" aria-controls="toc" aria-expanded="false">
+          <svg viewBox="0 0 12 18" aria-hidden="true"><path d="M1,0 H11 V17 L6,13 L1,17 Z" /></svg>
+          <span class="toc-label">Chapters</span>
+        </button>
+        <p class="where" aria-hidden="true"><span class="where-title">Cover</span><span class="where-num mono"></span></p>
+        <button class="ctl next" type="button" aria-label="Open the book"><span aria-hidden="true">›</span></button>
+      </nav>
+
+      <div class="toc js-only" id="toc" role="dialog" aria-label="Chapters" hidden>
+        <p class="toc-head">Chapters</p>
+        <ol>
+          {ribbonList.map((r) => (
+            <li>
+              <a href={`#p${r.page}`}>
+                <span>{r.label}</span>
+                <span class="leader" aria-hidden="true"></span>
+                <span class="pg">{r.page === 0 || r.page === 19 ? '✶' : r.page}</span>
+              </a>
+            </li>
+          ))}
+        </ol>
+      </div>
+
+      <p class="sr" id="announce" aria-live="polite"></p>
+    </div>
+
+    <div class="vignette" aria-hidden="true"></div>
+
+    <style is:global>
+      :root {
+        --ink: #0a0807;
+        --ink-2: #120e0b;
+        --ink-3: #1c1611;
+        --vellum: #ece0c4;
+        --vellum-2: #cdbd98;
+        --vellum-3: #93866b;
+        --gold: #c9a65b;
+        --gold-2: #9c7e3e;
+        --gold-3: #5a4824;
+        --blood: #7a1a1f;
+        --blood-2: #a8262c;
+        --blood-ink: #d0595e;
+        --verd: #5fc6b0;
+        --verd-2: #2f7f71;
+        /* Inks for writing on vellum. */
+        --pg: #e8d9b6;
+        --pg-shade: #cdb98d;
+        --pi: #2a1d12;
+        --pi-2: #46341f;
+        --pi-3: #7a6446;
+        --pr: #8c1c21;
+        --po: #86652a;
+        --pv: #1d6457;
+        --display: 'Cinzel', 'Trajan Pro', Georgia, serif;
+        --book: 'EB Garamond', Garamond, Georgia, serif;
+        --mono: 'JetBrains Mono', ui-monospace, Consolas, monospace;
+        /* Page size. Overridden below once the book is bound. */
+        --pw: 600px;
+        --ph: 860px;
+        --fs: 17px;
+        --rim: 0px;
+        --vellum-tex:
+          radial-gradient(ellipse 120% 95% at 50% 46%, transparent 58%, rgba(122, 76, 28, 0.32) 100%),
+          url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .32 0 0 0 0 .2 0 0 0 0 .08 0 0 0 .32 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"),
+          url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='1200' height='1200'%3E%3Cfilter id='m'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.018' numOctaves='2' seed='4' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .45 0 0 0 0 .3 0 0 0 0 .12 0 0 0 .55 -.14'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23m)'/%3E%3C/svg%3E"),
+          url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='1200' height='1200'%3E%3Cfilter id='f'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.06' numOctaves='2' seed='11' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .5 0 0 0 0 .3 0 0 0 0 .1 0 0 0 1.3 -.86'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23f)'/%3E%3C/svg%3E");
+        --leather-tex:
+          radial-gradient(ellipse 80% 60% at 50% 40%, rgba(255, 190, 120, 0.1), transparent 70%),
+          linear-gradient(160deg, rgba(76, 40, 20, 0.5), rgba(24, 12, 7, 0.72));
+        color-scheme: dark;
+      }
+
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+      }
+
+      html {
+        overflow-x: clip;
+        background: var(--ink);
+      }
+
+      body {
+        margin: 0;
+        overflow-x: clip;
+        background:
+          radial-gradient(ellipse 80% 50% at 50% 0%, rgba(122, 26, 31, 0.16), transparent 70%),
+          radial-gradient(ellipse 60% 40% at 50% 100%, rgba(47, 127, 113, 0.08), transparent 70%),
+          var(--ink);
+        color: var(--vellum-2);
+        font-family: var(--book);
+        font-size: 1.1rem;
+        line-height: 1.55;
+        -webkit-font-smoothing: antialiased;
+        text-rendering: optimizeLegibility;
+      }
+
+      a {
+        color: inherit;
+      }
+
+      .mono {
+        font-family: var(--mono);
+      }
+
+      .sr {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+        clip: rect(0 0 0 0);
+        white-space: nowrap;
+      }
+
+      .defs {
+        position: absolute;
+        width: 0;
+        height: 0;
+        overflow: hidden;
+      }
+
+      :focus-visible {
+        outline: 1px solid var(--verd);
+        outline-offset: 4px;
+      }
+
+      .page :focus-visible {
+        outline-color: var(--pv);
+      }
+
+      /* ---------- The desk ---------- */
+      .desk {
+        position: fixed;
+        inset: 0;
+        z-index: 0;
+        pointer-events: none;
+        overflow: hidden;
+      }
+
+      .candle {
+        position: absolute;
+        inset: -10%;
+        background:
+          radial-gradient(circle at 50% 46%, rgba(255, 176, 92, 0.15), rgba(201, 120, 52, 0.07) 30%, transparent 56%),
+          radial-gradient(circle at 18% 84%, rgba(255, 160, 70, 0.12), transparent 30%),
+          radial-gradient(circle at 50% 50%, rgba(122, 26, 31, 0.24), transparent 64%);
+        animation: flicker 7s infinite;
+      }
+
+      @keyframes flicker {
+        0% { opacity: 0.9; transform: translate(0, 0) scale(1); }
+        8% { opacity: 1; transform: translate(-0.4%, 0.3%) scale(1.02); }
+        11% { opacity: 0.82; }
+        16% { opacity: 0.96; transform: translate(0.3%, -0.2%) scale(0.99); }
+        34% { opacity: 0.88; transform: translate(0.5%, 0.2%) scale(1.01); }
+        37% { opacity: 1; }
+        52% { opacity: 0.9; transform: translate(-0.3%, -0.4%) scale(1.03); }
+        58% { opacity: 0.8; }
+        61% { opacity: 0.97; transform: translate(0, 0.3%) scale(1); }
+        79% { opacity: 0.86; transform: translate(0.4%, -0.1%) scale(1.02); }
+        83% { opacity: 1; }
+        100% { opacity: 0.9; transform: translate(0, 0) scale(1); }
+      }
+
+      .grain {
+        position: absolute;
+        inset: 0;
+        opacity: 0.1;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .92 0 0 0 0 .82 0 0 0 0 .62 0 0 0 .9 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"),
+          url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='600' height='600'%3E%3Cfilter id='m'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.012' numOctaves='2' seed='4'/%3E%3CfeColorMatrix values='0 0 0 0 .5 0 0 0 0 .35 0 0 0 0 .18 0 0 0 .6 -.1'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23m)'/%3E%3C/svg%3E");
+      }
+
+      .vignette {
+        position: fixed;
+        inset: 0;
+        z-index: 40;
+        pointer-events: none;
+        background: radial-gradient(ellipse 90% 80% at 50% 46%, transparent 58%, rgba(0, 0, 0, 0.62) 100%);
+      }
+
+      /* A taper on the corner of the desk, only when there is room for it. */
+      .taper {
+        display: none;
+        position: absolute;
+        left: max(3vw, 24px);
+        bottom: -2vh;
+        width: 30px;
+        height: 30vh;
+        border-radius: 5px 5px 0 0;
+        background: linear-gradient(90deg, #6e5f48, #e9dcbc 38%, #d7c7a1 64%, #6a5a42);
+        box-shadow: 0 0 40px rgba(255, 170, 80, 0.12);
+      }
+
+      .taper::before {
+        content: '';
+        position: absolute;
+        top: -2px;
+        left: 4px;
+        width: 9px;
+        height: 34px;
+        border-radius: 0 0 6px 6px;
+        background: linear-gradient(90deg, #d9caa4, #f1e6cb);
+      }
+
+      .wick {
+        position: absolute;
+        left: 50%;
+        bottom: 100%;
+        width: 2px;
+        height: 9px;
+        margin-left: -1px;
+        background: #1a120b;
+      }
+
+      .flame {
+        position: absolute;
+        left: 50%;
+        bottom: calc(100% + 4px);
+        width: 16px;
+        height: 40px;
+        margin-left: -8px;
+        border-radius: 50% 50% 50% 50% / 62% 62% 38% 38%;
+        background: radial-gradient(ellipse 50% 60% at 50% 74%, #fffbe8 0%, #ffe09a 26%, #ff9a3a 56%, rgba(255, 120, 40, 0) 74%);
+        transform-origin: 50% 100%;
+        animation: flame 2.6s ease-in-out infinite;
+      }
+
+      .flame::after {
+        content: '';
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        width: 340px;
+        height: 340px;
+        margin: -170px 0 0 -170px;
+        border-radius: 50%;
+        background: radial-gradient(circle, rgba(255, 176, 92, 0.2), transparent 62%);
+      }
+
+      @keyframes flame {
+        0%, 100% { transform: scale(1, 1) rotate(-1deg); opacity: 0.95; }
+        20% { transform: scale(0.94, 1.06) rotate(2deg); opacity: 1; }
+        45% { transform: scale(1.04, 0.95) rotate(-2deg); opacity: 0.86; }
+        70% { transform: scale(0.97, 1.08) rotate(1deg); opacity: 1; }
+      }
+
+      @media (min-width: 1400px) {
+        .taper {
+          display: block;
+        }
+      }
+
+      .draft-tag {
+        position: fixed;
+        right: 12px;
+        bottom: 12px;
+        z-index: 60;
+        font-family: var(--mono);
+        font-size: 0.72rem;
+        letter-spacing: 0.06em;
+        text-decoration: none;
+        color: var(--gold);
+        background: rgba(10, 8, 7, 0.88);
+        border: 1px solid var(--gold-3);
+        padding: 6px 10px;
+        border-radius: 2px;
+        box-shadow: 0 0 0 3px rgba(10, 8, 7, 0.6);
+      }
+
+      .draft-tag:hover {
+        color: var(--verd);
+        border-color: var(--verd-2);
+      }
+
+      /* ---------- Sigil (shared by altar, plate and cover) ---------- */
+      .sigil {
+        --sg-gold: var(--gold);
+        --sg-gold-2: var(--gold-2);
+        --sg-gold-3: var(--gold-3);
+        --sg-verd: var(--verd);
+        --sg-verd-2: var(--verd-2);
+        --sg-blood: var(--blood-2);
+        --sg-ground: var(--ink);
+        position: relative;
+        aspect-ratio: 1;
+        pointer-events: none;
+      }
+
+      .sigil svg {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        overflow: visible;
+        fill: none;
+      }
+
+      .sigil-outer.spin {
+        animation: spin 320s linear infinite;
+      }
+
+      .sigil-inner.spin {
+        animation: spin 220s linear infinite reverse;
+      }
+
+      @keyframes spin {
+        to { transform: rotate(360deg); }
+      }
+
+      .ln-gold {
+        stroke: var(--sg-gold-2);
+        stroke-width: 1.1;
+      }
+
+      .ln-gold.faint {
+        opacity: 0.45;
+        stroke-width: 0.7;
+      }
+
+      .ln-gold.dashed {
+        stroke-dasharray: 2 6;
+        opacity: 0.7;
+      }
+
+      .ln-gold.hept {
+        stroke-width: 0.9;
+        opacity: 0.7;
+      }
+
+      .ln-verd {
+        stroke: var(--sg-verd-2);
+        stroke-width: 0.9;
+        opacity: 0.8;
+      }
+
+      .ln-blood {
+        stroke: var(--sg-blood);
+        stroke-width: 1.4;
+        opacity: 0.8;
+      }
+
+      .tk {
+        stroke: var(--sg-gold-3);
+        stroke-width: 1;
+      }
+
+      .tk-major {
+        stroke: var(--sg-gold);
+        stroke-width: 1.6;
+      }
+
+      .gl {
+        stroke: var(--sg-gold);
+        stroke-width: 1.2;
+        fill: var(--sg-ground);
+      }
+
+      .ring-text {
+        fill: var(--sg-gold-2);
+        font-family: var(--mono);
+        font-size: 10.5px;
+        letter-spacing: 1px;
+        opacity: 0.75;
+      }
+
+      .traces {
+        stroke: var(--sg-verd);
+        stroke-width: 1.2;
+        fill: none;
+        animation: pulse 6s ease-in-out infinite;
+      }
+
+      .traces circle {
+        fill: var(--sg-ground);
+      }
+
+      @keyframes pulse {
+        0%, 100% { opacity: 0.35; }
+        50% { opacity: 0.9; }
+      }
+
+      .sigil--altar {
+        position: absolute;
+        top: 47%;
+        left: 50%;
+        width: min(130vw, 1060px);
+        transform: translate(-50%, -50%);
+        opacity: 0.3;
+      }
+
+      /* ---------- Stage + book: shared bits ---------- */
+      .stage {
+        position: relative;
+        z-index: 10;
+      }
+
+      .book {
+        font-size: var(--fs);
+        line-height: 1.5;
+      }
+
+      .page {
+        position: relative;
+        color: var(--pi-2);
+        background-color: var(--pg);
+        background-image: var(--vellum-tex);
+      }
+
+      .page-body {
+        padding: 3.4em 2.6em 3.2em;
+      }
+
+      .run-head {
+        position: absolute;
+        top: 1.25em;
+        left: 0;
+        right: 0;
+        margin: 0;
+        text-align: center;
+        font-family: var(--display);
+        font-size: 0.62em;
+        letter-spacing: 0.28em;
+        text-transform: uppercase;
+        color: var(--pi-3);
+      }
+
+      .run-head::before,
+      .run-head::after {
+        content: '·';
+        margin: 0 0.7em;
+        color: var(--pr);
+      }
+
+      .folio-num {
+        position: absolute;
+        bottom: 1.1em;
+        margin: 0;
+        font-family: var(--display);
+        font-size: 0.78em;
+        letter-spacing: 0.1em;
+        color: var(--pr);
+      }
+
+      .recto .folio-num {
+        right: 2.2em;
+      }
+
+      .verso .folio-num {
+        left: 2.2em;
+      }
+
+      /* ---------- Covers ---------- */
+      .page.cover {
+        color: var(--gold);
+        background: var(--leather-tex), #2a170d var(--leather) center / 320px;
+        overflow: hidden;
+      }
+
+      /* the hinge where the board meets the spine */
+      .page.cover::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        left: 0;
+        width: 7%;
+        background: linear-gradient(90deg, rgba(0, 0, 0, 0.6), rgba(0, 0, 0, 0.2) 55%, rgba(255, 214, 160, 0.07) 78%, rgba(0, 0, 0, 0.35));
+        pointer-events: none;
+      }
+
+      .page.back-cover::before {
+        left: auto;
+        right: 0;
+        transform: scaleX(-1);
+      }
+
+      .cover-art {
+        position: absolute;
+        inset: 6.5% 7% 6.5% 11%;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: space-between;
+        padding: 9% 7%;
+        text-align: center;
+        border: 1px solid rgba(201, 166, 91, 0.75);
+        outline: 1px solid rgba(201, 166, 91, 0.35);
+        outline-offset: 6px;
+        box-shadow:
+          inset 0 0 0 5px rgba(0, 0, 0, 0),
+          inset 0 0 0 6px rgba(201, 166, 91, 0.28),
+          0 1px 0 rgba(255, 220, 160, 0.08);
+      }
+
+      .back-cover .cover-art {
+        inset: 6.5% 11% 6.5% 7%;
+        justify-content: center;
+        gap: 8%;
+      }
+
+      .fleuron {
+        position: absolute;
+        width: 2.2em;
+        height: 2.2em;
+        fill: none;
+        stroke: var(--gold);
+        stroke-width: 1.2;
+        filter: drop-shadow(0 1px 0 rgba(0, 0, 0, 0.7));
+      }
+
+      .fleuron .fl-leaf {
+        fill: rgba(201, 166, 91, 0.35);
+      }
+
+      .fleuron .fl-dot {
+        fill: var(--gold);
+        stroke: none;
+      }
+
+      .fleuron.tl { top: 10px; left: 10px; }
+      .fleuron.tr { top: 10px; right: 10px; transform: scaleX(-1); }
+      .fleuron.bl { bottom: 10px; left: 10px; transform: scaleY(-1); }
+      .fleuron.br { bottom: 10px; right: 10px; transform: scale(-1, -1); }
+
+      .cover-kicker {
+        margin: 0;
+        font-family: var(--display);
+        font-size: 0.7em;
+        letter-spacing: 0.4em;
+        text-transform: uppercase;
+        color: var(--gold-2);
+        text-shadow: 0 1px 0 rgba(0, 0, 0, 0.8);
+      }
+
+      .sigil--cover {
+        --sg-verd: #b5934f;
+        --sg-verd-2: #8a6f38;
+        --sg-blood: #c49a52;
+        --sg-ground: #24140b;
+        width: 78%;
+        margin: 4% 0;
+        filter: drop-shadow(0 1px 0 rgba(0, 0, 0, 0.85)) drop-shadow(0 -1px 0 rgba(255, 222, 160, 0.18));
+      }
+
+      .sigil--cover .traces {
+        animation: none;
+        opacity: 0.7;
+      }
+
+      .cover-title {
+        margin: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 0.35em;
+      }
+
+      .cover-pre {
+        font-style: italic;
+        font-size: 1.05em;
+        color: var(--gold-2);
+      }
+
+      .cover-name {
+        font-family: var(--display);
+        font-weight: 600;
+        font-size: 1.85em;
+        line-height: 1.05;
+        letter-spacing: 0.08em;
+        color: #d9b86c;
+        text-shadow:
+          0 1px 0 rgba(0, 0, 0, 0.9),
+          0 -1px 0 rgba(255, 230, 170, 0.22),
+          0 0 18px rgba(255, 180, 90, 0.18);
+      }
+
+      .cover-hint {
+        margin: 0;
+        font-family: var(--mono);
+        font-size: 0.62em;
+        letter-spacing: 0.14em;
+        color: rgba(201, 166, 91, 0.75);
+        animation: breathe 3.2s ease-in-out infinite;
+      }
+
+      @keyframes breathe {
+        0%, 100% { opacity: 0.45; }
+        50% { opacity: 1; }
+      }
+
+      .stamp {
+        width: 34%;
+        fill: none;
+        stroke: rgba(0, 0, 0, 0.55);
+        stroke-width: 3;
+        filter: drop-shadow(0 1px 0 rgba(255, 220, 160, 0.14));
+      }
+
+      .stamp .thin {
+        stroke-width: 1.2;
+      }
+
+      .cover-kicker.back {
+        font-size: 0.6em;
+        letter-spacing: 0.3em;
+      }
+
+      /* ---------- Frontispiece ---------- */
+      .frontis .page-inner {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+      }
+
+      .plate {
+        position: relative;
+        width: min(100%, 17em);
+        aspect-ratio: 1;
+        margin: 0;
+        overflow: hidden;
+        background:
+          radial-gradient(circle at 50% 50%, rgba(255, 176, 92, 0.12), transparent 60%),
+          radial-gradient(circle at 50% 50%, rgba(122, 26, 31, 0.3), transparent 72%),
+          var(--ink-2);
+        border: 1px solid var(--po);
+        outline: 1px solid rgba(134, 101, 42, 0.5);
+        outline-offset: 4px;
+        box-shadow:
+          inset 0 0 30px rgba(0, 0, 0, 0.9),
+          0 3px 10px rgba(60, 35, 10, 0.35);
+      }
+
+      .sigil--plate {
+        position: absolute;
+        inset: -14%;
+        opacity: 0.85;
+      }
+
+      .kicker {
+        margin: 1.4em 0 0;
+        font-size: 0.66em;
+        letter-spacing: 0.22em;
+        text-transform: uppercase;
+        color: var(--pv);
+      }
+
+      .howto {
+        margin: 1.2em auto 0;
+        max-width: 18em;
+        font-style: italic;
+        font-size: 0.9em;
+        color: var(--pi-3);
+      }
+
+      /* ---------- Title page ---------- */
+      .title-page .page-inner {
+        text-align: center;
+      }
+
+      .title {
+        margin: 0;
+        font-family: var(--display);
+        font-size: 1em;
+        font-weight: 600;
+        line-height: 0.95;
+        color: var(--pi);
+      }
+
+      .title-pre {
+        display: block;
+        margin-bottom: 0.7em;
+        font-family: var(--book);
+        font-style: italic;
+        font-weight: 400;
+        font-size: 1.15em;
+        letter-spacing: 0.04em;
+        color: var(--pr);
+      }
+
+      .title-line {
+        display: block;
+        font-size: 2.55em;
+        letter-spacing: 0.05em;
+        background: linear-gradient(180deg, #2b1d10 0%, #4a3216 55%, #86652a 100%);
+        -webkit-background-clip: text;
+        background-clip: text;
+        -webkit-text-fill-color: transparent;
+      }
+
+      .flourish {
+        width: 11em;
+        max-width: 70%;
+        margin: 1.1em auto 1em;
+      }
+
+      .flourish.small {
+        width: 8em;
+      }
+
+      .flourish svg {
+        display: block;
+        width: 100%;
+        height: auto;
+        fill: none;
+        stroke: var(--po);
+        stroke-width: 1;
+      }
+
+      .flourish .dot {
+        fill: var(--pr);
+        stroke: none;
+      }
+
+      .lede {
+        margin: 0 0 0.5em;
+        font-style: italic;
+        font-size: 1.4em;
+        color: var(--pi);
+      }
+
+      .bio,
+      .reading-text {
+        margin: 0;
+        text-align: left;
+        font-size: 1.05em;
+        color: var(--pi-2);
+        hyphens: auto;
+      }
+
+      /* the illuminated drop cap stays a little dark panel, like the original */
+      .initial {
+        float: left;
+        display: grid;
+        place-items: center;
+        width: 2.5em;
+        height: 2.5em;
+        margin: 0.28em 0.6em 0 0;
+        font-family: var(--display);
+        font-weight: 700;
+        font-size: 1.15em;
+        line-height: 1;
+        color: var(--gold);
+        background:
+          linear-gradient(var(--ink-2), var(--ink-2)) padding-box,
+          linear-gradient(135deg, var(--gold), var(--gold-3) 50%, var(--verd-2)) border-box;
+        border: 1px solid transparent;
+        box-shadow:
+          inset 0 0 0 3px var(--ink-2),
+          inset 0 0 0 4px rgba(156, 126, 62, 0.45),
+          0 2px 6px rgba(60, 35, 10, 0.35);
+        position: relative;
+      }
+
+      .initial::before,
+      .initial::after {
+        content: '';
+        position: absolute;
+        width: 6px;
+        height: 6px;
+        border: 1px solid var(--verd);
+        border-radius: 50%;
+        background: var(--ink);
+      }
+
+      .initial::before {
+        top: -4px;
+        right: 8px;
+      }
+
+      .initial::after {
+        bottom: -4px;
+        left: 8px;
+      }
+
+      /* ---------- Contents ---------- */
+      .contents {
+        margin: 0 auto;
+        max-width: 22em;
+      }
+
+      .contents-head,
+      .toc-head {
+        margin: 0 0 0.9em;
+        text-align: center;
+        font-family: var(--display);
+        font-size: 1.5em;
+        letter-spacing: 0.3em;
+        text-transform: uppercase;
+        color: var(--pi);
+      }
+
+      .contents-head::after {
+        content: '';
+        display: block;
+        width: 3em;
+        height: 1px;
+        margin: 0.5em auto 0;
+        background: var(--pr);
+      }
+
+      .contents ol,
+      .toc ol {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+      }
+
+      .contents li a,
+      .toc li a {
+        display: flex;
+        align-items: baseline;
+        gap: 0.55em;
+        padding: 0.45em 0;
+        text-decoration: none;
+        font-family: var(--display);
+        font-size: 1em;
+        letter-spacing: 0.06em;
+        color: var(--pi);
+        transition: color 0.25s;
+      }
+
+      .contents li a em {
+        font-family: var(--book);
+        font-size: 0.95em;
+        letter-spacing: 0;
+        color: var(--pi-3);
+      }
+
+      .leader {
+        flex: 1;
+        min-width: 1em;
+        border-bottom: 1px dotted rgba(122, 100, 70, 0.7);
+        transform: translateY(-0.25em);
+      }
+
+      .pg {
+        font-size: 0.85em;
+        color: var(--pr);
+      }
+
+      .contents li a:hover,
+      .contents li a:focus-visible {
+        color: var(--pr);
+      }
+
+      .contents li a:hover em {
+        color: var(--pv);
+      }
+
+      .roman {
+        width: 2.2em;
+        flex: none;
+        font-size: 0.8em;
+        color: var(--pr);
+      }
+
+      .elsewhere {
+        margin: 1.6em 0 0;
+        text-align: center;
+        font-size: 0.75em;
+        color: var(--pi-3);
+      }
+
+      .elsewhere a,
+      .foot-links a {
+        color: var(--pv);
+        text-decoration: none;
+      }
+
+      .elsewhere a:hover,
+      .foot-links a:hover {
+        text-decoration: underline;
+      }
+
+      /* ---------- Chapter openers and section heads ---------- */
+      .opener .page-inner,
+      .sec-head {
+        text-align: center;
+      }
+
+      .opener-head {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+      }
+
+      .opener-num {
+        display: grid;
+        place-items: center;
+        width: 3.2em;
+        height: 3.2em;
+        margin-bottom: 1em;
+        font-family: var(--display);
+        font-weight: 700;
+        font-size: 1.6em;
+        color: var(--gold);
+        background:
+          linear-gradient(var(--ink-2), var(--ink-2)) padding-box,
+          linear-gradient(135deg, var(--gold), var(--gold-3) 50%, var(--verd-2)) border-box;
+        border: 1px solid transparent;
+        box-shadow:
+          inset 0 0 0 4px var(--ink-2),
+          inset 0 0 0 5px rgba(156, 126, 62, 0.45),
+          0 3px 10px rgba(60, 35, 10, 0.4);
+        text-shadow: 0 0 12px rgba(255, 180, 90, 0.3);
+      }
+
+      .sec-num {
+        display: inline-block;
+        font-size: 0.68em;
+        letter-spacing: 0.25em;
+        color: var(--pv);
+        padding: 2px 10px;
+        border: 1px solid rgba(29, 100, 87, 0.45);
+        border-radius: 1px;
+      }
+
+      .opener h2,
+      .sec-head h2 {
+        margin: 0.5em 0 0.3em;
+        font-family: var(--display);
+        font-weight: 500;
+        font-size: 2em;
+        line-height: 1.1;
+        letter-spacing: 0.06em;
+        color: var(--pi);
+      }
+
+      .sec-head h2 {
+        font-size: 1.7em;
+      }
+
+      .opener h2::before,
+      .opener h2::after,
+      .sec-head h2::before,
+      .sec-head h2::after {
+        content: '✶';
+        display: inline-block;
+        margin: 0 0.45em;
+        font-size: 0.4em;
+        vertical-align: middle;
+        color: var(--pr);
+      }
+
+      .sec-sub {
+        margin: 0 auto;
+        max-width: 19em;
+        font-style: italic;
+        color: var(--pi-3);
+      }
+
+      .sec-head {
+        margin-bottom: 1.6em;
+      }
+
+      .fan {
+        position: relative;
+        height: 7.5em;
+        width: 10em;
+        margin: 2.4em auto 0;
+      }
+
+      .fan span {
+        position: absolute;
+        left: 50%;
+        bottom: 0;
+        width: 3.4em;
+        height: 5.4em;
+        margin-left: -1.7em;
+        border-radius: 4px;
+        transform-origin: 50% 120%;
+        background: linear-gradient(180deg, rgba(23, 18, 14, 0.7), rgba(14, 11, 9, 0.85)), #0e0b09 var(--leather) center / 200px;
+        box-shadow:
+          inset 0 0 0 3px #0e0b09,
+          inset 0 0 0 4px rgba(201, 166, 91, 0.55),
+          0 3px 8px rgba(40, 20, 5, 0.45);
+      }
+
+      .fan span:nth-child(1) { transform: rotate(-24deg); }
+      .fan span:nth-child(2) { transform: rotate(-8deg); }
+      .fan span:nth-child(3) { transform: rotate(8deg); }
+      .fan span:nth-child(4) { transform: rotate(24deg); }
+
+      .star {
+        display: block;
+        width: 7.5em;
+        margin: 2.4em auto 0;
+        fill: none;
+        stroke: var(--pr);
+        stroke-width: 1.4;
+        opacity: 0.8;
+      }
+
+      .star circle {
+        stroke: var(--po);
+        stroke-width: 1;
+      }
+
+      .star .star-in {
+        stroke: var(--pv);
+      }
+
+      .more {
+        text-align: center;
+        margin: 1.6em 0 0;
+      }
+
+      .more a {
+        font-family: var(--display);
+        font-size: 0.78em;
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+        color: var(--pr);
+        text-decoration: none;
+        border-bottom: 1px solid rgba(140, 28, 33, 0.4);
+        padding-bottom: 2px;
+      }
+
+      .more a::after {
+        content: ' →';
+        font-family: var(--book);
+      }
+
+      .more a:hover,
+      .more a:focus-visible {
+        color: var(--pv);
+        border-color: var(--pv);
+      }
+
+      /* ---------- Tarot cards (leather, unchanged in spirit) ---------- */
+      .card-page .page-inner {
+        display: flex;
+        justify-content: center;
+      }
+
+      .card {
+        --rx: 0deg;
+        --ry: 0deg;
+        --mx: 50%;
+        --my: 30%;
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        width: min(100%, 300px);
+        aspect-ratio: 5 / 8;
+        padding: 1.4em 1.1em 1.5em;
+        text-align: center;
+        text-decoration: none;
+        color: var(--vellum-2);
+        /* leather texture: Poly Haven "brown_leather" (CC0), darkened under the gradient */
+        background:
+          radial-gradient(ellipse 90% 60% at 50% 30%, rgba(201, 166, 91, 0.1), transparent 70%),
+          linear-gradient(180deg, rgba(23, 18, 14, 0.8), rgba(14, 11, 9, 0.88) 70%, rgba(18, 13, 11, 0.84)),
+          #0e0b09 var(--leather) center / 360px;
+        border-radius: 6px;
+        box-shadow:
+          0 1px 0 rgba(255, 230, 180, 0.04) inset,
+          0 14px 26px -12px rgba(40, 20, 5, 0.75),
+          0 0 0 1px rgba(0, 0, 0, 0.6);
+        transform: perspective(900px) rotateX(var(--rx)) rotateY(var(--ry));
+        transform-style: preserve-3d;
+        transition:
+          transform 0.5s cubic-bezier(0.2, 0.7, 0.2, 1),
+          box-shadow 0.4s;
+      }
+
+      .card.tilting {
+        transition: transform 0.08s linear, box-shadow 0.4s;
+      }
+
+      .card:hover,
+      .card:focus-visible {
+        box-shadow:
+          0 1px 0 rgba(255, 230, 180, 0.05) inset,
+          0 20px 34px -14px rgba(40, 20, 5, 0.85),
+          0 0 30px -6px rgba(95, 198, 176, 0.35);
+        outline: none;
+      }
+
+      .card-frame {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        fill: none;
+        pointer-events: none;
+        overflow: visible;
+      }
+
+      .fr-base {
+        stroke: var(--gold-3);
+        stroke-width: 0.45;
+      }
+
+      .fr-base.stub {
+        opacity: 0.8;
+      }
+
+      .fr-lit {
+        stroke: var(--verd);
+        stroke-width: 0.6;
+        stroke-dasharray: 1;
+        stroke-dashoffset: 1;
+        transition: stroke-dashoffset 1.3s cubic-bezier(0.6, 0, 0.2, 1);
+      }
+
+      .fr-lit.stub {
+        transition-delay: 0.35s;
+        transition-duration: 0.9s;
+      }
+
+      .fr-packet {
+        stroke: #c9fff2;
+        stroke-width: 1;
+        stroke-linecap: round;
+        stroke-dasharray: 0.03 0.97;
+        opacity: 0;
+        transition: opacity 0.4s;
+        animation: packet 3.2s linear infinite paused;
+      }
+
+      @keyframes packet {
+        to { stroke-dashoffset: -1; }
+      }
+
+      .card:hover .fr-lit,
+      .card:focus-visible .fr-lit {
+        stroke-dashoffset: 0;
+      }
+
+      .card:hover .fr-packet,
+      .card:focus-visible .fr-packet {
+        opacity: 0.9;
+        animation-play-state: running;
+      }
+
+      .card:hover .card-frame,
+      .card:focus-visible .card-frame {
+        filter: drop-shadow(0 0 3px rgba(95, 198, 176, 0.55));
+      }
+
+      .card-sheen {
+        position: absolute;
+        inset: 0;
+        border-radius: inherit;
+        pointer-events: none;
+        background: radial-gradient(circle at var(--mx) var(--my), rgba(255, 214, 150, 0.1), transparent 45%);
+        opacity: 0;
+        transition: opacity 0.4s;
+      }
+
+      .card:hover .card-sheen {
+        opacity: 1;
+      }
+
+      .numeral {
+        font-family: var(--display);
+        font-weight: 600;
+        font-size: 1.1em;
+        letter-spacing: 0.2em;
+        color: var(--gold);
+        transform: translateZ(20px);
+      }
+
+      .numeral::before,
+      .numeral::after {
+        content: '';
+        display: inline-block;
+        width: 1em;
+        height: 1px;
+        margin: 0 0.6em;
+        vertical-align: middle;
+        background: var(--gold-3);
+      }
+
+      .emblem {
+        display: block;
+        width: 64%;
+        margin: auto 0;
+        transform: translateZ(36px);
+      }
+
+      .emblem svg {
+        display: block;
+        width: 100%;
+        height: auto;
+        fill: none;
+        stroke: var(--gold);
+        stroke-width: 1.5;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+        transition: stroke 0.4s;
+      }
+
+      .em-halo {
+        stroke: var(--gold-3);
+        stroke-width: 0.8;
+        stroke-dasharray: 1 3;
+      }
+
+      .em-thin {
+        stroke-width: 1;
+        opacity: 0.7;
+      }
+
+      .em-acc {
+        stroke: var(--verd);
+      }
+
+      .em-acc.fill,
+      .em-dot {
+        fill: var(--verd);
+        stroke: none;
+      }
+
+      .card:hover .em-acc,
+      .card:focus-visible .em-acc {
+        filter: drop-shadow(0 0 3px var(--verd));
+      }
+
+      .arcana {
+        font-family: var(--display);
+        font-size: 0.68em;
+        letter-spacing: 0.28em;
+        text-transform: uppercase;
+        color: var(--blood-ink);
+      }
+
+      .card-name {
+        margin-top: 0.1em;
+        font-family: var(--display);
+        font-weight: 600;
+        font-size: 1.45em;
+        line-height: 1.15;
+        letter-spacing: 0.04em;
+        color: var(--vellum);
+        transform: translateZ(24px);
+      }
+
+      .card-meta {
+        margin-top: 0.3em;
+        font-size: 0.6em;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        color: var(--vellum-3);
+      }
+
+      .status.building {
+        color: var(--verd);
+      }
+
+      .status.shipped {
+        color: var(--gold);
+      }
+
+      /* ---------- Readings (facing each card) ---------- */
+      .reading .page-inner {
+        text-align: center;
+      }
+
+      .reading-num {
+        margin: 0;
+        font-family: var(--display);
+        font-size: 0.7em;
+        letter-spacing: 0.26em;
+        text-transform: uppercase;
+        color: var(--pr);
+      }
+
+      .reading-name {
+        margin: 0.25em 0 0.15em;
+        font-family: var(--display);
+        font-weight: 600;
+        font-size: 2.3em;
+        line-height: 1.05;
+        letter-spacing: 0.04em;
+        color: var(--pi);
+      }
+
+      .reading-meta {
+        margin: 0;
+        font-size: 0.66em;
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+        color: var(--pi-3);
+      }
+
+      .page .status.building {
+        color: var(--pv);
+      }
+
+      .page .status.shipped {
+        color: var(--po);
+      }
+
+      .card .status.building {
+        color: var(--verd);
+      }
+
+      .card .status.shipped {
+        color: var(--gold);
+      }
+
+      .reading-text {
+        font-size: 1.15em;
+        line-height: 1.5;
+      }
+
+      .reading-text::after {
+        content: '';
+        display: block;
+        clear: both;
+      }
+
+      /* ---------- Codex ---------- */
+      .codex {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+      }
+
+      .entry {
+        padding: 0.75em 0 0.85em;
+        border-bottom: 1px solid rgba(134, 101, 42, 0.35);
+      }
+
+      .entry:first-child {
+        border-top: 1px solid rgba(134, 101, 42, 0.35);
+      }
+
+      .entry-main {
+        display: flex;
+        gap: 0.8em;
+        align-items: baseline;
+        text-decoration: none;
+      }
+
+      .entry-num {
+        flex: none;
+        width: 1.8em;
+        font-family: var(--display);
+        font-size: 1.3em;
+        color: var(--pr);
+        text-align: right;
+      }
+
+      .entry-body {
+        display: flex;
+        flex-direction: column;
+      }
+
+      .folio {
+        font-size: 0.62em;
+        letter-spacing: 0.18em;
+        color: var(--po);
+      }
+
+      .entry-title {
+        font-size: 1.2em;
+        line-height: 1.22;
+        color: var(--pi);
+        background: linear-gradient(var(--pv), var(--pv)) 0 100% / 0 1px no-repeat;
+        transition: background-size 0.5s, color 0.3s;
+      }
+
+      .entry-main:hover .entry-title,
+      .entry-main:focus-visible .entry-title {
+        color: #000;
+        background-size: 100% 1px;
+      }
+
+      .marginalia {
+        position: relative;
+        display: block;
+        margin: 0.4em 0 0 3.6em;
+        padding: 0.1em 0 0.1em 0.8em;
+        border-left: 1px dashed rgba(140, 28, 33, 0.55);
+        transform: rotate(-1.2deg);
+        font-style: italic;
+        font-size: 0.92em;
+        line-height: 1.25;
+        color: var(--pr);
+      }
+
+      .marginalia::before {
+        content: '☞';
+        position: absolute;
+        left: -1.4em;
+        top: 0.05em;
+        font-style: normal;
+        color: var(--pr);
+      }
+
+      .status-note {
+        display: block;
+        margin-bottom: 0.1em;
+        font-style: normal;
+        font-size: 0.66em;
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+        color: var(--pv);
+      }
+
+      .note {
+        display: block;
+      }
+
+      /* ---------- Scrolls ---------- */
+      .scrolls {
+        display: grid;
+        gap: 1.6em;
+        margin: 0 1em;
+      }
+
+      .scroll {
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        gap: 0.15em;
+        padding: 1.05em 1.2em 0.95em;
+        text-decoration: none;
+        background:
+          linear-gradient(180deg, rgba(122, 76, 28, 0.16), transparent 30%, transparent 70%, rgba(122, 76, 28, 0.2)),
+          #ddcba2;
+        border-top: 1px solid rgba(134, 101, 42, 0.6);
+        border-bottom: 1px solid rgba(134, 101, 42, 0.6);
+        box-shadow: 0 4px 10px -6px rgba(60, 35, 10, 0.6);
+        transition: transform 0.4s, box-shadow 0.4s;
+      }
+
+      .scroll::before,
+      .scroll::after {
+        content: '';
+        position: absolute;
+        top: -0.45em;
+        bottom: -0.45em;
+        width: 0.75em;
+        border-radius: 0.4em;
+        background: linear-gradient(90deg, #3a2c14, #b08a45 45%, #6a5126 70%, #2a1f0e);
+        box-shadow: 0 3px 6px rgba(40, 20, 5, 0.5);
+      }
+
+      .scroll::before {
+        left: -0.75em;
+      }
+
+      .scroll::after {
+        right: -0.75em;
+      }
+
+      .scroll:hover,
+      .scroll:focus-visible {
+        transform: translateY(-3px);
+        box-shadow: 0 8px 16px -8px rgba(29, 100, 87, 0.55);
+      }
+
+      .scroll-title {
+        font-family: var(--display);
+        font-size: 1.15em;
+        letter-spacing: 0.06em;
+        color: var(--pi);
+      }
+
+      .scroll-text {
+        font-style: italic;
+        color: var(--pi-2);
+      }
+
+      .scroll-url {
+        margin-top: 0.35em;
+        font-size: 0.62em;
+        color: var(--pv);
+        overflow-wrap: anywhere;
+      }
+
+      /* ---------- Pacts ---------- */
+      .pacts {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        display: grid;
+        gap: 0.65em;
+      }
+
+      .pact {
+        display: flex;
+        align-items: center;
+        gap: 0.9em;
+        padding: 0.5em 0.9em 0.5em 0.6em;
+        text-decoration: none;
+        background: linear-gradient(90deg, rgba(140, 28, 33, 0.08), rgba(122, 76, 28, 0.04));
+        border: 1px solid rgba(134, 101, 42, 0.4);
+        border-radius: 3px;
+        transition: border-color 0.3s, background 0.3s;
+      }
+
+      .pact:hover,
+      .pact:focus-visible {
+        border-color: var(--po);
+        background: linear-gradient(90deg, rgba(140, 28, 33, 0.14), rgba(122, 76, 28, 0.08));
+      }
+
+      .seal {
+        flex: none;
+        width: 2.9em;
+        height: 2.9em;
+        filter: drop-shadow(0 2px 2px rgba(40, 10, 5, 0.5));
+        transition: transform 0.4s cubic-bezier(0.3, 1.6, 0.5, 1);
+      }
+
+      .seal svg,
+      .finis-seal svg {
+        display: block;
+        width: 100%;
+        height: 100%;
+      }
+
+      .pact:hover .seal {
+        transform: rotate(-8deg) scale(1.06);
+      }
+
+      .unsealed {
+        fill: none;
+        stroke: var(--pv);
+        stroke-width: 2;
+        stroke-dasharray: 5 6;
+        animation: spin 40s linear infinite;
+      }
+
+      .unsealed .inner {
+        stroke-dasharray: none;
+        stroke-width: 1;
+        opacity: 0.6;
+      }
+
+      .unsealed path {
+        stroke: var(--pv);
+        stroke-dasharray: none;
+      }
+
+      .pact-body {
+        display: flex;
+        flex-direction: column;
+        min-width: 0;
+      }
+
+      .pact-repo {
+        font-size: 0.8em;
+        color: var(--pi);
+        overflow-wrap: anywhere;
+      }
+
+      .pact-kind {
+        font-style: italic;
+        font-size: 0.95em;
+        color: var(--po);
+      }
+
+      .pact.open .pact-kind {
+        color: var(--pv);
+      }
+
+      /* ---------- Colophon and finis ---------- */
+      .colophon .page-inner,
+      .finis .page-inner {
+        text-align: center;
+        color: var(--pi-3);
+      }
+
+      .colophon-head {
+        margin: 0 0 0.6em;
+        font-family: var(--display);
+        letter-spacing: 0.3em;
+        text-transform: uppercase;
+        font-size: 1em;
+        color: var(--pi);
+      }
+
+      .colophon p {
+        margin: 0 auto 0.8em;
+        max-width: 20em;
+      }
+
+      .foot-links {
+        font-size: 0.76em;
+      }
+
+      .tiny {
+        font-size: 0.66em;
+        opacity: 0.8;
+      }
+
+      .finis-seal {
+        display: block;
+        width: 4.4em;
+        height: 4.4em;
+        margin: 0 auto 0.9em;
+        filter: drop-shadow(0 3px 3px rgba(40, 10, 5, 0.5));
+      }
+
+      .finis-word {
+        margin: 0;
+        font-family: var(--display);
+        font-size: 1.9em;
+        letter-spacing: 0.3em;
+        color: var(--pi);
+      }
+
+      .finis-text {
+        margin: 0.4em 0 0;
+        font-style: italic;
+      }
+
+      /* ---------- Fallback: no JS, or before the book is bound ---------- */
+      html:not(.book-ready) .js-only {
+        display: none !important;
+      }
+
+      html.js:not(.book-ready) .book {
+        visibility: hidden;
+        animation: appear 0s 2.5s forwards;
+      }
+
+      @keyframes appear {
+        to { visibility: visible; }
+      }
+
+      html:not(.book-ready) .book {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 28px;
+        padding: 56px 16px 96px;
+      }
+
+      html:not(.book-ready) .page {
+        width: min(100%, 640px);
+        box-shadow: 0 20px 40px -20px rgba(0, 0, 0, 0.9);
+      }
+
+      html:not(.book-ready) .page.cover {
+        min-height: min(110vw, 760px);
+      }
+
+      html:not(.book-ready) .page-body {
+        padding: 3.6em 1.6em 3.4em;
+      }
+
+      html:not(.book-ready) .page.opener .page-body {
+        padding-top: 4.4em;
+      }
+
+      /* ---------- The bound book ---------- */
+      .book-ready,
+      .book-ready body {
+        height: 100%;
+        overflow: hidden;
+      }
+
+      .book-ready .stage {
+        --pw: min(calc((100svh - 150px) * 0.7), calc((100vw - 96px) / 2), 560px);
+        --ph: calc(var(--pw) / 0.7);
+        --fs: calc(var(--pw) / 27);
+        --rim: clamp(6px, calc(var(--pw) * 0.022), 12px);
+        position: fixed;
+        inset: 0;
+        display: grid;
+        place-items: center;
+        padding: 46px 0 84px;
+        overflow: clip;
+      }
+
+      .book-ready .book {
+        position: relative;
+        width: calc(var(--pw) * 2);
+        height: var(--ph);
+        z-index: 1;
+        isolation: isolate;
+        touch-action: pan-y;
+        transition: transform 0.95s cubic-bezier(0.45, 0.05, 0.25, 1);
+      }
+
+      .book-ready .book.single {
+        width: var(--pw);
+      }
+
+      .book-ready .book.spread.at-start {
+        transform: translateX(-25%);
+      }
+
+      .book-ready .book.spread.at-end {
+        transform: translateX(25%);
+      }
+
+      .book-ready .book.no-anim,
+      .book-ready .book.no-anim * {
+        transition: none !important;
+      }
+
+      .book-shadow {
+        position: absolute;
+        inset: 0;
+        z-index: 0;
+        pointer-events: none;
+        box-shadow:
+          0 30px 50px -12px rgba(0, 0, 0, 0.85),
+          0 0 90px 10px rgba(0, 0, 0, 0.45);
+        transition: transform 0.95s cubic-bezier(0.45, 0.05, 0.25, 1);
+      }
+
+      .spread.at-start .book-shadow {
+        transform-origin: 100% 50%;
+        transform: scaleX(0.5);
+      }
+
+      .spread.at-end .book-shadow {
+        transform-origin: 0 50%;
+        transform: scaleX(0.5);
+      }
+
+      .leaf {
+        position: absolute;
+        top: 0;
+        left: 50%;
+        width: 50%;
+        height: 100%;
+        transform-origin: 0 50%;
+        transform-style: preserve-3d;
+      }
+
+      .single .leaf {
+        left: 0;
+        width: 100%;
+      }
+
+      .leaf.far {
+        visibility: hidden;
+      }
+
+      .spread .leaf.board {
+        top: calc(var(--rim) * -1);
+        height: calc(100% + var(--rim) * 2);
+        width: calc(50% + var(--rim));
+      }
+
+      .face {
+        position: absolute;
+        inset: 0;
+        overflow: clip;
+        backface-visibility: hidden;
+        -webkit-backface-visibility: hidden;
+        background-color: var(--pg);
+        background-image: var(--vellum-tex);
+      }
+
+      .face.back {
+        transform: rotateY(180deg);
+      }
+
+      .spread .leaf.board .face {
+        background: var(--leather-tex), #2a170d var(--leather) center / 320px;
+        border-radius: 3px;
+      }
+
+      .spread .leaf.board .face.front {
+        border-radius: 0 4px 4px 0;
+      }
+
+      .spread .leaf.board .face.back {
+        border-radius: 4px 0 0 4px;
+      }
+
+      /* page block edges, so the book has some thickness */
+      .spread .leaf:not(.board) .face.front {
+        box-shadow:
+          1px 0 0 #cdb98d,
+          2px 1px 0 #e6d6b1,
+          3px 1px 0 #bfa97c,
+          4px 2px 0 #dfcda6;
+      }
+
+      .spread .leaf:not(.board) .face.back {
+        box-shadow:
+          -1px 0 0 #cdb98d,
+          -2px 1px 0 #e6d6b1,
+          -3px 1px 0 #bfa97c,
+          -4px 2px 0 #dfcda6;
+      }
+
+      .book-ready .page {
+        position: absolute;
+        inset: 0;
+      }
+
+      .spread .leaf.board .face.back .page.pastedown {
+        inset: var(--rim) 2px var(--rim) var(--rim);
+      }
+
+      .spread .leaf.board .face.front .page.pastedown {
+        inset: var(--rim) var(--rim) var(--rim) 2px;
+      }
+
+      .pastedown {
+        box-shadow: 0 0 0 1px rgba(60, 35, 10, 0.4);
+      }
+
+      .book-ready .page-body {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        flex-direction: column;
+        padding: 3.4em 2.5em 3.3em 3em;
+        overflow-y: auto;
+        overscroll-behavior: contain;
+        scrollbar-width: thin;
+        scrollbar-color: rgba(122, 100, 70, 0.5) transparent;
+      }
+
+      .book-ready .back .page-body {
+        padding-left: 2.5em;
+        padding-right: 3em;
+      }
+
+      .book-ready .page-inner {
+        margin-block: auto;
+        width: 100%;
+      }
+
+      .book-ready .card {
+        width: min(100%, calc((var(--ph) - 7.5em) * 0.625));
+      }
+
+      .single .folio-num {
+        left: auto;
+        right: 2em;
+      }
+
+      /* gutter shading: paper curving down into the spine */
+      .face::after {
+        content: '';
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        width: 16%;
+        pointer-events: none;
+      }
+
+      .face.front::after {
+        left: 0;
+        background: linear-gradient(90deg, rgba(60, 34, 10, 0.42), rgba(60, 34, 10, 0.14) 28%, rgba(255, 246, 225, 0.1) 55%, transparent);
+      }
+
+      .face.back::after {
+        right: 0;
+        background: linear-gradient(270deg, rgba(60, 34, 10, 0.42), rgba(60, 34, 10, 0.14) 28%, rgba(255, 246, 225, 0.1) 55%, transparent);
+      }
+
+      .spread .leaf.board .face::after,
+      .single .leaf.board .face::after {
+        width: 5%;
+        opacity: 0.6;
+      }
+
+      /* light on a turning page, and the shadow it throws on the page below */
+      .shade,
+      .cast {
+        position: absolute;
+        inset: 0;
+        z-index: 2;
+        opacity: 0;
+        pointer-events: none;
+      }
+
+      .front .shade {
+        background: linear-gradient(270deg, rgba(50, 28, 8, 0.6), rgba(50, 28, 8, 0.22) 30%, rgba(255, 246, 225, 0.28) 62%, rgba(50, 28, 8, 0.32));
+      }
+
+      .back .shade {
+        background: linear-gradient(90deg, rgba(50, 28, 8, 0.6), rgba(50, 28, 8, 0.22) 30%, rgba(255, 246, 225, 0.28) 62%, rgba(50, 28, 8, 0.32));
+      }
+
+      .front .cast {
+        background: linear-gradient(90deg, rgba(25, 12, 2, 0.7), rgba(25, 12, 2, 0.28) 18%, transparent 48%);
+      }
+
+      .back .cast {
+        background: linear-gradient(270deg, rgba(25, 12, 2, 0.7), rgba(25, 12, 2, 0.28) 18%, transparent 48%);
+      }
+
+      /* only the visible pages keep their little animations running */
+      .face:not(.live) * {
+        animation-play-state: paused !important;
+      }
+
+      /* ---------- Edges and the peel hint ---------- */
+      .edge {
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        z-index: 3000;
+        width: 2.4em;
+        cursor: pointer;
+        user-select: none;
+        -webkit-tap-highlight-color: transparent;
+      }
+
+      .edge.prev {
+        left: 0;
+      }
+
+      .edge.next {
+        right: 0;
+      }
+
+      .edge::after {
+        content: '';
+        position: absolute;
+        bottom: 0;
+        width: 3.4em;
+        height: 3.4em;
+        transform: scale(0);
+        transition: transform 0.35s cubic-bezier(0.3, 1.4, 0.5, 1);
+        filter: drop-shadow(-2px -2px 3px rgba(40, 20, 5, 0.35));
+        pointer-events: none;
+      }
+
+      .edge.next::after {
+        right: 0;
+        transform-origin: 100% 100%;
+        background: linear-gradient(135deg, #f4ead2 0%, #e4d4ae 36%, #c9b386 49.6%, #b7a072 50%, #b7a072 100%);
+      }
+
+      .edge.prev::after {
+        left: 0;
+        transform-origin: 0 100%;
+        filter: drop-shadow(2px -2px 3px rgba(40, 20, 5, 0.35));
+        background: linear-gradient(225deg, #f4ead2 0%, #e4d4ae 36%, #c9b386 49.6%, #b7a072 50%, #b7a072 100%);
+      }
+
+      @media (hover: hover) {
+        .edge:hover::after {
+          transform: scale(1);
+        }
+      }
+
+      .book.at-start .edge.prev,
+      .book.at-end .edge.next {
+        display: none;
+      }
+
+      .spread.at-start .edge.next,
+      .single.at-start .edge.next {
+        width: 50%;
+      }
+
+      .single.at-start .edge.next {
+        width: 100%;
+      }
+
+      .spread.at-end .edge.prev {
+        width: 50%;
+      }
+
+      .book.at-start .edge::after,
+      .book.at-end .edge::after,
+      .single .edge.prev::after {
+        display: none;
+      }
+
+      .book.turning-busy .edge::after {
+        transform: scale(0);
+      }
+
+      /* ---------- Ribbon bookmark ---------- */
+      .ribbon {
+        position: absolute;
+        z-index: 0;
+        top: -2.6em;
+        left: 79%;
+        width: 1.1em;
+        height: 4em;
+        padding: 0;
+        border: 0;
+        cursor: pointer;
+        background: linear-gradient(90deg, #4a0c10, #9b2228 35%, #c0393f 50%, #8a1c22 70%, #3d0a0d);
+        clip-path: polygon(0 0, 50% 0.9em, 100% 0, 100% 100%, 0 100%);
+        box-shadow: 0 0 6px rgba(0, 0, 0, 0.5);
+        transition: transform 0.3s cubic-bezier(0.3, 1.4, 0.5, 1);
+      }
+
+      .single .ribbon {
+        left: 74%;
+      }
+
+      /* with the back cover facing up, the right half is empty desk */
+      .spread.at-end .ribbon {
+        visibility: hidden;
+      }
+
+      .ribbon:hover,
+      .ribbon[aria-expanded='true'] {
+        transform: translateY(-0.5em);
+      }
+
+      .ribbon:focus-visible {
+        outline-offset: 2px;
+      }
+
+      /* ---------- Controls ---------- */
+      .controls {
+        position: fixed;
+        left: 50%;
+        bottom: 16px;
+        z-index: 60;
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        padding: 4px;
+        transform: translateX(-50%);
+        background: rgba(10, 8, 7, 0.86);
+        border: 1px solid var(--gold-3);
+        border-radius: 999px;
+        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.6);
+      }
+
+      .ctl {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        min-width: 40px;
+        height: 40px;
+        padding: 0 10px;
+        border: 0;
+        border-radius: 999px;
+        background: transparent;
+        color: var(--gold);
+        font-family: var(--display);
+        font-size: 1.5rem;
+        line-height: 1;
+        cursor: pointer;
+        transition: background 0.2s, color 0.2s;
+      }
+
+      .ctl:hover:not(:disabled) {
+        background: rgba(201, 166, 91, 0.12);
+        color: var(--vellum);
+      }
+
+      .ctl:disabled {
+        opacity: 0.3;
+        cursor: default;
+      }
+
+      .toc-btn {
+        font-size: 0.72rem;
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+      }
+
+      .toc-btn svg {
+        width: 10px;
+        height: 15px;
+        fill: var(--blood-2);
+      }
+
+      .where {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        min-width: 9.5em;
+        margin: 0 4px;
+        font-size: 0.9rem;
+        line-height: 1.15;
+        text-align: center;
+      }
+
+      .where-title {
+        font-style: italic;
+        color: var(--vellum);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 14em;
+      }
+
+      .where-num {
+        font-size: 0.66rem;
+        letter-spacing: 0.12em;
+        color: var(--gold-2);
+      }
+
+      /* ---------- Chapter list (opened by the ribbon) ---------- */
+      .toc {
+        position: fixed;
+        left: 50%;
+        top: 50%;
+        z-index: 70;
+        width: min(calc(100vw - 32px), 360px);
+        max-height: calc(100svh - 120px);
+        overflow-y: auto;
+        padding: 1.4em 1.6em 1.2em;
+        transform: translate(-50%, -50%);
+        font-size: 16px;
+        color: var(--pi-2);
+        background-color: var(--pg);
+        background-image: var(--vellum-tex);
+        border-radius: 3px;
+        box-shadow:
+          0 0 0 6px #2a170d,
+          0 0 0 7px rgba(201, 166, 91, 0.5),
+          0 30px 60px rgba(0, 0, 0, 0.8);
+        animation: toc-in 0.25s ease-out;
+      }
+
+      @keyframes toc-in {
+        from { opacity: 0; transform: translate(-50%, -48%); }
+      }
+
+      .toc-head {
+        font-size: 1.1em;
+      }
+
+      .toc li a:hover,
+      .toc li a:focus-visible {
+        color: var(--pr);
+      }
+
+      /* ---------- Phones and narrow windows: one page at a time ---------- */
+      @media (max-width: 819.98px), (max-height: 519.98px) {
+        .book-ready .stage {
+          --pw: min(calc(100vw - 32px), 460px);
+          --ph: min(calc(100svh - 136px), calc(var(--pw) * 1.8));
+          --fs: clamp(14px, 3.9vw, 16px);
+          padding: 52px 16px 80px;
+        }
+
+        .book-ready .page-body {
+          padding: 3em 1.7em 3em 2em;
+        }
+
+        .edge {
+          width: 1.6em;
+        }
+
+        .draft-tag {
+          top: 10px;
+          left: 10px;
+          right: auto;
+          bottom: auto;
+        }
+
+        .controls {
+          bottom: 12px;
+        }
+
+        .toc-label {
+          display: none;
+        }
+
+        .where {
+          min-width: 7.5em;
+        }
+
+        .where-title {
+          max-width: 9em;
+        }
+
+        .title-line {
+          font-size: 2.3em;
+        }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        *,
+        *::before,
+        *::after {
+          animation: none !important;
+          transition: none !important;
+        }
+
+        .card {
+          transform: none !important;
+        }
+
+        html.js:not(.book-ready) .book {
+          visibility: visible;
+        }
+      }
+    </style>
+
+    <script is:inline>
+      (function () {
+        var root = document.documentElement;
+        var reduceMq = window.matchMedia('(prefers-reduced-motion: reduce)');
+        var fine = window.matchMedia('(hover: hover) and (pointer: fine)').matches;
+
+        // Cards lean toward the pointer. Only for real mice, never with reduced motion.
+        if (!reduceMq.matches && fine) {
+          document.querySelectorAll('.card').forEach(function (card) {
+            var frame = 0;
+            card.addEventListener('pointermove', function (ev) {
+              var r = card.getBoundingClientRect();
+              var x = (ev.clientX - r.left) / r.width;
+              var y = (ev.clientY - r.top) / r.height;
+              cancelAnimationFrame(frame);
+              frame = requestAnimationFrame(function () {
+                card.classList.add('tilting');
+                card.style.setProperty('--rx', ((0.5 - y) * 10).toFixed(2) + 'deg');
+                card.style.setProperty('--ry', ((x - 0.5) * 12).toFixed(2) + 'deg');
+                card.style.setProperty('--mx', (x * 100).toFixed(1) + '%');
+                card.style.setProperty('--my', (y * 100).toFixed(1) + '%');
+              });
+            });
+            card.addEventListener('pointerleave', function () {
+              cancelAnimationFrame(frame);
+              card.classList.remove('tilting');
+              card.style.setProperty('--rx', '0deg');
+              card.style.setProperty('--ry', '0deg');
+            });
+          });
+        }
+
+        var book = document.getElementById('book');
+        if (!book || !Element.prototype.animate || !('inert' in HTMLElement.prototype)) return;
+
+        var pages = Array.prototype.slice.call(book.querySelectorAll(':scope > .page'));
+        var spreadMq = window.matchMedia('(min-width: 820px) and (min-height: 520px)');
+        var prevBtn = document.querySelector('.ctl.prev');
+        var nextBtn = document.querySelector('.ctl.next');
+        var whereTitle = document.querySelector('.where-title');
+        var whereNum = document.querySelector('.where-num');
+        var announce = document.getElementById('announce');
+        var toc = document.getElementById('toc');
+        var tocBtns = Array.prototype.slice.call(document.querySelectorAll('[aria-controls="toc"]'));
+        var aliases = { arcana: 4, codex: 13, scrolls: 15, pacts: 16 };
+        var last = pages.length - 1;
+
+        var leaves = [];
+        var spread = false;
+        var pos = 0;
+        var maxPos = 0;
+        var inflight = 0;
+        var seq = 0;
+        var lastPush = 0;
+        var tocOpener = null;
+
+        function div(cls) {
+          var d = document.createElement('div');
+          d.className = cls;
+          return d;
+        }
+
+        function makeFace(side, page) {
+          var f = div('face ' + side);
+          if (page) f.appendChild(page);
+          f.shade = div('shade');
+          f.cast = div('cast');
+          f.appendChild(f.shade);
+          f.appendChild(f.cast);
+          f.inert = true;
+          return f;
+        }
+
+        // Bind the loose pages into leaves. Desktop: two pages per leaf. Phone: one.
+        function build() {
+          spread = spreadMq.matches;
+          var old = leaves;
+          leaves = [];
+          var step = spread ? 2 : 1;
+          for (var i = 0; i < pages.length; i += step) {
+            var L = { el: div('leaf'), anims: null, timer: 0, token: 0, target: false };
+            L.front = makeFace('front', pages[i]);
+            L.back = makeFace('back', spread ? pages[i + 1] : null);
+            L.el.appendChild(L.front);
+            L.el.appendChild(L.back);
+            leaves.push(L);
+          }
+          leaves[0].el.classList.add('board');
+          leaves[leaves.length - 1].el.classList.add('board');
+          old.forEach(function (L) {
+            clearTimeout(L.timer);
+            L.el.remove();
+          });
+          var frag = document.createDocumentFragment();
+          leaves.forEach(function (L) {
+            frag.appendChild(L.el);
+          });
+          book.insertBefore(frag, book.firstChild);
+          book.classList.toggle('spread', spread);
+          book.classList.toggle('single', !spread);
+          maxPos = spread ? leaves.length : leaves.length - 1;
+        }
+
+        function persp() {
+          return spread ? 2800 : 1500;
+        }
+
+        function setLeaf(L, k, flipped) {
+          L.el.style.transform = flipped ? 'perspective(' + persp() + 'px) rotateY(-180deg)' : 'none';
+          L.el.style.zIndex = flipped ? k + 1 : leaves.length * 2 - k;
+        }
+
+        function setRange(lo, hi) {
+          leaves.forEach(function (L, k) {
+            var vis = (k >= lo && k <= hi) || (spread && (k === 0 || k === leaves.length - 1));
+            L.el.classList.toggle('far', !vis);
+          });
+        }
+
+        function settledRange() {
+          if (spread) setRange(pos - 1, pos);
+          else setRange(pos, pos);
+        }
+
+        function render() {
+          leaves.forEach(function (L, k) {
+            setLeaf(L, k, k < pos);
+          });
+          settledRange();
+        }
+
+        function ease(t) {
+          return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+        }
+
+        // Sample the turn so the shading and the cast shadow follow the real angle of the page.
+        function frames(from, to) {
+          var P = persp();
+          var curl = spread ? 1.6 : 1.2;
+          var o = { leaf: [], shade: [], castR: [], castL: [] };
+          var n = 24;
+          for (var i = 0; i <= n; i++) {
+            var t = i / n;
+            var a = from + (to - from) * ease(t);
+            var r = (a * Math.PI) / 180;
+            var s = Math.sin(r);
+            var c = Math.cos(r);
+            o.leaf.push({
+              offset: t,
+              transform: 'perspective(' + P + 'px) rotateY(' + (-a).toFixed(2) + 'deg) skewY(' + (-curl * s).toFixed(3) + 'deg)',
+            });
+            o.shade.push({ offset: t, opacity: +(0.85 * s).toFixed(3) });
+            o.castR.push({
+              offset: t,
+              transform: 'translateX(' + (Math.max(c, 0) * 100).toFixed(2) + '%)',
+              opacity: +(a <= 90 ? 0.3 + (0.7 * a) / 90 : (180 - a) / 90).toFixed(3),
+            });
+            o.castL.push({
+              offset: t,
+              transform: 'translateX(' + (Math.min(c, 0) * 100).toFixed(2) + '%)',
+              opacity: +(a <= 90 ? 0 : 1 - (a - 90) / 180).toFixed(3),
+            });
+          }
+          return o;
+        }
+
+        function stopLeaf(L, k) {
+          if (!L.anims) return;
+          clearTimeout(L.timer);
+          L.anims.forEach(function (a) {
+            a.cancel();
+          });
+          L.anims = null;
+          L.token++;
+          setLeaf(L, k, L.target);
+          inflight--;
+          if (inflight <= 0) {
+            inflight = 0;
+            seq = 0;
+            settledRange();
+            book.classList.remove('turning-busy');
+          }
+        }
+
+        function stopAll() {
+          leaves.forEach(function (L, k) {
+            stopLeaf(L, k);
+          });
+        }
+
+        function flip(k, fwd, o) {
+          var L = leaves[k];
+          if (!L) return;
+          stopLeaf(L, k);
+          var j = seq++;
+          inflight++;
+          book.classList.add('turning-busy');
+          var f = fwd ? frames(0, 180) : frames(180, 0);
+          var opt = { duration: o.dur, delay: o.delay, fill: 'both', easing: 'linear' };
+          L.target = fwd;
+          L.el.style.zIndex = 1000 - j;
+          var a = L.el.animate(f.leaf, opt);
+          var list = [a, L.front.shade.animate(f.shade, opt), L.back.shade.animate(f.shade, opt)];
+          if (o.cast) {
+            var R = leaves[k + 1];
+            var Lt = leaves[k - 1];
+            if (R) list.push(R.front.cast.animate(f.castR, opt));
+            if (spread && Lt) list.push(Lt.back.cast.animate(f.castL, opt));
+          }
+          L.anims = list;
+          // Swap stacking order the moment the page passes the spine.
+          L.timer = setTimeout(function () {
+            L.el.style.zIndex = 1000 + j;
+          }, o.delay + o.dur / 2);
+          var token = ++L.token;
+          a.onfinish = function () {
+            if (token === L.token) stopLeaf(L, k);
+          };
+        }
+
+        function currentPage() {
+          return spread ? (pos === 0 ? 0 : Math.min(2 * pos - 1, last)) : pos;
+        }
+
+        function posFromPage(p) {
+          return spread ? Math.floor((p + 1) / 2) : p;
+        }
+
+        function chapterOf(i) {
+          return pages[i] ? pages[i].getAttribute('data-chapter') : '';
+        }
+
+        function goToPos(t, o) {
+          o = o || {};
+          t = Math.max(0, Math.min(maxPos, t));
+          if (t === pos) return;
+          var a = pos;
+          pos = t;
+          var fwd = t > a;
+          var dist = Math.abs(t - a);
+          if (o.instant || reduceMq.matches) {
+            stopAll();
+            render();
+            if (!o.instant) book.animate([{ opacity: 0.35 }, { opacity: 1 }], { duration: 200, easing: 'ease-out' });
+          } else {
+            for (var k = Math.min(a, t) - 1; k <= Math.max(a, t); k++) {
+              if (leaves[k]) leaves[k].el.classList.remove('far');
+            }
+            if (dist === 1) {
+              flip(fwd ? a : t, fwd, { dur: spread ? 950 : 720, delay: 0, cast: true });
+            } else {
+              // A riffle: several quick turns, slightly staggered.
+              var step = Math.min(90, 900 / dist);
+              for (var j = 0; j < dist; j++) {
+                flip(fwd ? a + j : a - 1 - j, fwd, { dur: spread ? 640 : 520, delay: j * step, cast: false });
+              }
+            }
+          }
+          sync(o);
+        }
+
+        function next() {
+          goToPos(pos + 1, { push: true });
+        }
+
+        function prev() {
+          goToPos(pos - 1, { push: true });
+        }
+
+        function faces() {
+          leaves.forEach(function (L) {
+            [L.front, L.back].forEach(function (f) {
+              f.inert = true;
+              f.classList.remove('live');
+            });
+          });
+          var vis = [];
+          if (spread) {
+            if (pos > 0) vis.push(leaves[pos - 1].back);
+            if (pos < leaves.length) vis.push(leaves[pos].front);
+          } else {
+            vis.push(leaves[pos].front);
+          }
+          vis.forEach(function (f) {
+            f.inert = false;
+            f.classList.add('live');
+          });
+        }
+
+        function sync(o) {
+          o = o || {};
+          book.classList.toggle('at-start', pos === 0);
+          book.classList.toggle('at-end', pos === maxPos);
+          faces();
+          prevBtn.disabled = pos === 0;
+          nextBtn.disabled = pos === maxPos;
+          nextBtn.setAttribute('aria-label', pos === 0 ? 'Open the book' : 'Next page');
+          prevBtn.setAttribute('aria-label', pos === maxPos && spread ? 'Open the back cover' : 'Previous page');
+
+          var title, nums, said;
+          if (pos === 0) {
+            title = 'The cover';
+            nums = 'closed';
+            said = 'The cover. Closed book.';
+          } else if (spread && pos === maxPos) {
+            title = 'The back cover';
+            nums = 'closed';
+            said = 'The back cover. Closed book.';
+          } else if (spread) {
+            var l = 2 * pos - 1;
+            var r = 2 * pos;
+            title = chapterOf(r) || chapterOf(l);
+            nums = l + ' · ' + r + ' of ' + last;
+            said = 'Pages ' + l + ' and ' + r + '. ' + chapterOf(l) + ', ' + chapterOf(r) + '.';
+          } else {
+            title = chapterOf(pos);
+            nums = pos === last ? 'closed' : pos + ' of ' + last;
+            said = 'Page ' + pos + '. ' + title + '.';
+          }
+          whereTitle.textContent = title;
+          whereNum.textContent = nums;
+          announce.textContent = said;
+
+          if (o.push) writeHash(o.forcePush);
+        }
+
+        function writeHash(force) {
+          var h = '#p' + currentPage();
+          if (location.hash === h) return;
+          var now = Date.now();
+          try {
+            if (!force && now - lastPush < 900) history.replaceState(null, '', h);
+            else history.pushState(null, '', h);
+          } catch (e) {}
+          lastPush = now;
+        }
+
+        function pageFromHash(h) {
+          if (!h) return null;
+          var m = /^#p(\d+)$/.exec(h);
+          if (m) return Math.min(+m[1], last);
+          var key = h.slice(1);
+          return Object.prototype.hasOwnProperty.call(aliases, key) ? aliases[key] : null;
+        }
+
+        function onHash() {
+          var p = pageFromHash(location.hash);
+          var t = posFromPage(p == null ? 0 : p);
+          if (t !== pos) goToPos(t, {});
+        }
+
+        // ---------- Chapter list ----------
+        function setToc(open, opener) {
+          toc.hidden = !open;
+          tocBtns.forEach(function (b) {
+            b.setAttribute('aria-expanded', open ? 'true' : 'false');
+          });
+          if (open) {
+            tocOpener = opener || null;
+            var first = toc.querySelector('a');
+            if (first) first.focus();
+          } else if (tocOpener) {
+            tocOpener.focus();
+            tocOpener = null;
+          }
+        }
+
+        tocBtns.forEach(function (b) {
+          b.addEventListener('click', function () {
+            setToc(toc.hidden, b);
+          });
+        });
+
+        document.addEventListener('pointerdown', function (e) {
+          if (toc.hidden) return;
+          if (toc.contains(e.target)) return;
+          if (tocBtns.some(function (b) { return b.contains(e.target); })) return;
+          tocOpener = null;
+          setToc(false);
+        });
+
+        // In-book links (#p4 and friends) turn pages instead of jumping.
+        document.addEventListener('click', function (e) {
+          var a = e.target.closest && e.target.closest('a[href^="#"]');
+          if (!a) return;
+          var p = pageFromHash(a.getAttribute('href'));
+          if (p == null) return;
+          e.preventDefault();
+          if (!toc.hidden) {
+            tocOpener = null;
+            setToc(false);
+          }
+          goToPos(posFromPage(p), { push: true, forcePush: true });
+        });
+
+        prevBtn.addEventListener('click', prev);
+        nextBtn.addEventListener('click', next);
+        book.querySelector('.edge.prev').addEventListener('click', prev);
+        book.querySelector('.edge.next').addEventListener('click', next);
+
+        document.addEventListener('keydown', function (e) {
+          if (e.defaultPrevented || e.altKey || e.ctrlKey || e.metaKey) return;
+          var k = e.key;
+          if (k === 'Escape' && !toc.hidden) {
+            setToc(false);
+            e.preventDefault();
+            return;
+          }
+          var onBody = document.activeElement === document.body || document.activeElement === book;
+          if (k === 'ArrowRight' || k === 'PageDown') next();
+          else if (k === 'ArrowLeft' || k === 'PageUp') prev();
+          else if (k === 'Home' && !e.shiftKey) goToPos(0, { push: true, forcePush: true });
+          else if (k === 'End' && !e.shiftKey) goToPos(maxPos, { push: true, forcePush: true });
+          else if ((k === 'Enter' || k === ' ') && onBody && pos === 0) next();
+          else return;
+          e.preventDefault();
+        });
+
+        // Swipe on touch screens.
+        var sx = 0;
+        var sy = 0;
+        var sid = null;
+        book.addEventListener('pointerdown', function (e) {
+          if (e.pointerType === 'mouse') return;
+          sx = e.clientX;
+          sy = e.clientY;
+          sid = e.pointerId;
+        });
+        book.addEventListener('pointerup', function (e) {
+          if (e.pointerId !== sid) return;
+          sid = null;
+          var dx = e.clientX - sx;
+          var dy = e.clientY - sy;
+          if (Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(dy) * 1.3) {
+            if (dx < 0) next();
+            else prev();
+          }
+        });
+        book.addEventListener('pointercancel', function () {
+          sid = null;
+        });
+
+        window.addEventListener('popstate', onHash);
+        window.addEventListener('hashchange', onHash);
+
+        function bind(page) {
+          stopAll();
+          build();
+          pos = Math.max(0, Math.min(maxPos, posFromPage(page)));
+          book.classList.add('no-anim');
+          render();
+          sync({});
+          setTimeout(function () {
+            book.classList.remove('no-anim');
+          }, 60);
+        }
+
+        var start = pageFromHash(location.hash);
+        bind(start == null ? 0 : start);
+        root.classList.add('book-ready');
+
+        spreadMq.addEventListener('change', function () {
+          bind(currentPage());
+        });
+      })();
+    </script>
+  </body>
+</html>

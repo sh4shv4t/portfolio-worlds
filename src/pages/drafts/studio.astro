@@ -1,0 +1,922 @@
+---
+// DRAFT: Studio Stage. A messy workbench on a lit set; every prop is a project.
+const O = '#1b100a'; // outline ink, gives the cel-shaded toy look
+
+// Perspective grid on the floor (vanishing point at the horizon centre)
+const VX = 800;
+const verticals: number[] = [];
+for (let x = -1800; x <= 3400; x += 130) verticals.push(x);
+const horizontals = [572, 590, 614, 646, 690, 750, 830];
+
+// Wireframe "unfinished mesh" in the back: a twisted lathe, animated in JS
+const RINGS: [number, number][] = [
+  [40, 70], [110, 52], [180, 40], [250, 36], [320, 42], [390, 60], [460, 92], [520, 140], [574, 200],
+];
+const SEG = 10;
+function mesh(t: number) {
+  const cx = 1170;
+  const pts = RINGS.map(([y, r], i) =>
+    Array.from({ length: SEG }, (_, j) => {
+      const a = (j / SEG) * Math.PI * 2 + t + i * 0.35;
+      return [cx + r * Math.cos(a), y + r * 0.22 * Math.sin(a)];
+    }),
+  );
+  const f = (p: number[]) => `${p[0].toFixed(1)} ${p[1].toFixed(1)}`;
+  let d = '';
+  pts.forEach((ring, i) =>
+    ring.forEach((p, j) => {
+      d += `M${f(p)}L${f(ring[(j + 1) % SEG])}`;
+      if (i < pts.length - 1) d += `M${f(p)}L${f(pts[i + 1][j])}M${f(p)}L${f(pts[i + 1][(j + 1) % SEG])}`;
+    }),
+  );
+  return d;
+}
+const meshPath = mesh(0);
+
+const now = new Date();
+const month = now.toLocaleString('en', { month: 'short' }).toUpperCase();
+const day = now.getDate();
+
+const bench = [
+  { href: '/projects/project-z', label: 'the CRT', title: 'Project Z', text: 'A self-hostable platform for agents that get better over time. Run, see, learn.' },
+  { href: '/projects/tracebank', label: 'the cassette', title: 'tracebank', text: 'Collects consented, long-horizon coding agent traces, scrubbed on your own machine.' },
+  { href: '/projects/errand', label: 'the drone', title: 'Errand', text: 'Send your model on fewer errands. Big models hand off tasks to cheaper specialists.' },
+  { href: '/projects/reminders', label: 'the calendar', title: 'Reminders', text: "A small Windows app so birthdays, events and tasks don't slip through." },
+  { href: '/research', label: 'the notebook', title: 'Research', text: 'Hidden overrides in reasoning models, LLM sameness and a malloc question.' },
+  { href: '/oss', label: 'the laptop + d20', title: 'Open source & Kaggle', text: 'Merged PRs in Kubeflow and Cortex, plus Name That LLM on Kaggle.' },
+  { href: '/writing', label: 'the zines', title: 'Writing', text: 'Stuff I write on Medium.' },
+];
+
+const motes = Array.from({ length: 16 }, (_, i) => ({
+  x: 900 + ((i * 97) % 480),
+  y: 120 + ((i * 53) % 380),
+  r: 1.5 + (i % 3),
+  d: 9 + (i % 5) * 2,
+  delay: -(i * 1.3),
+}));
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Studio Stage (draft) · Shashvat Singh</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Caveat:wght@600;700&family=Space+Mono:wght@400;700&family=Work+Sans:wght@400;500&display=swap"
+      rel="stylesheet"
+    />
+  </head>
+  <body>
+    <section class="stage-wrap">
+      <nav class="topnav" aria-label="Main">
+        <a href="/projects">Projects</a>
+        <a href="/research">Research</a>
+        <a href="/writing">Writing</a>
+        <a href="/oss">OSS</a>
+      </nav>
+
+      <div class="hero">
+        <p class="kicker">// live from the workbench</p>
+        <h1>Hey, I'm<br />Shashvat.</h1>
+        <p class="bio">
+          I build stuff around LLM agents: how they run, how you figure out where they went wrong and how they get
+          better over time. On the research side I poke at the insides of reasoning models, and when I can I
+          contribute to open source AI infra.
+        </p>
+        <p class="hint">poke stuff on the bench ↘</p>
+      </div>
+
+      <svg class="stage" viewBox="0 0 1600 900" preserveAspectRatio="xMidYMax slice" role="img" aria-label="A messy workbench with my projects on it">
+        <defs>
+          <linearGradient id="wall" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stop-color="#2a1a10" />
+            <stop offset="1" stop-color="#3b2516" />
+          </linearGradient>
+          <linearGradient id="floor" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stop-color="#8f8576" />
+            <stop offset="0.35" stop-color="#d9d1c1" />
+            <stop offset="1" stop-color="#f3eee4" />
+          </linearGradient>
+          <radialGradient id="pool" cx="0.5" cy="0.5" r="0.5">
+            <stop offset="0" stop-color="#fffaf0" stop-opacity="0.95" />
+            <stop offset="0.6" stop-color="#fff6e6" stop-opacity="0.45" />
+            <stop offset="1" stop-color="#fff6e6" stop-opacity="0" />
+          </radialGradient>
+          <radialGradient id="vignette" cx="0.5" cy="0.55" r="0.75">
+            <stop offset="0.55" stop-color="#000" stop-opacity="0" />
+            <stop offset="1" stop-color="#000" stop-opacity="0.65" />
+          </radialGradient>
+          <radialGradient id="crtglow" cx="0.5" cy="0.5" r="0.5">
+            <stop offset="0" stop-color="#5dff9a" stop-opacity="0.35" />
+            <stop offset="1" stop-color="#5dff9a" stop-opacity="0" />
+          </radialGradient>
+          <pattern id="gingham" width="44" height="44" patternUnits="userSpaceOnUse">
+            <rect width="44" height="44" fill="#f5f1e9" />
+            <rect width="22" height="44" fill="#c9c2b5" opacity="0.45" />
+            <rect width="44" height="22" fill="#c9c2b5" opacity="0.45" />
+          </pattern>
+          <pattern id="missing" width="28" height="28" patternUnits="userSpaceOnUse" patternTransform="rotate(8)">
+            <rect width="28" height="28" fill="#ff00e6" />
+            <rect width="14" height="14" fill="#14000f" />
+            <rect x="14" y="14" width="14" height="14" fill="#14000f" />
+          </pattern>
+          <pattern id="scan" width="4" height="4" patternUnits="userSpaceOnUse">
+            <rect width="4" height="2" fill="#000" opacity="0.35" />
+          </pattern>
+          <filter id="blur8"><feGaussianBlur stdDeviation="8" /></filter>
+          <filter id="blur20"><feGaussianBlur stdDeviation="20" /></filter>
+          <filter id="glow" x="-20%" y="-50%" width="140%" height="200%">
+            <feGaussianBlur stdDeviation="4" result="b" />
+            <feMerge><feMergeNode in="b" /><feMergeNode in="SourceGraphic" /></feMerge>
+          </filter>
+          <clipPath id="screenclip"><rect x="600" y="466" width="144" height="102" rx="10" /></clipPath>
+        </defs>
+
+        <!-- WALL -->
+        <rect width="1600" height="575" fill="url(#wall)" />
+
+        <!-- light through blinds, drifting slowly -->
+        <g class="blinds" filter="url(#blur8)">
+          <g transform="skewY(-5) translate(0 40)">
+            {Array.from({ length: 10 }, (_, i) => <rect x="70" y={70 + i * 46} width="430" height="24" rx="10" fill="#ff9a3c" opacity="0.28" />)}
+            {Array.from({ length: 10 }, (_, i) => <rect x="890" y={100 + i * 46} width="470" height="24" rx="10" fill="#ffa64d" opacity="0.42" />)}
+          </g>
+        </g>
+
+        <!-- sticky notes on the wall -->
+        <g class="sticky">
+          <g transform="rotate(-6 1300 400)">
+            <rect x="1262" y="362" width="80" height="74" fill="#ffd84a" stroke={O} stroke-width="3" />
+            <text x="1302" y="406" class="hand" text-anchor="middle" font-size="24" fill="#3a2414">ship it</text>
+          </g>
+          <g transform="rotate(6 1340 460)">
+            <rect x="1306" y="426" width="72" height="66" fill="#7fe0c9" stroke={O} stroke-width="3" />
+            <text x="1342" y="466" class="hand" text-anchor="middle" font-size="22" fill="#123">bday!!</text>
+          </g>
+        </g>
+
+        <!-- unfinished wireframe mesh -->
+        <path id="mesh" d={meshPath} fill="none" stroke="#fff" stroke-width="1.4" opacity="0.75" />
+        <text x="1250" y="120" class="hand note" font-size="26" fill="#f3e6cf" transform="rotate(-4 1250 120)">unfinished mesh, like most side projects</text>
+
+        <!-- ERROR shelf -->
+        <g class="shelf">
+          <rect x="1400" y="150" width="175" height="430" rx="6" fill="#55595f" stroke={O} stroke-width="4" />
+          <rect x="1414" y="164" width="147" height="92" fill="#1a0b0b" />
+          <rect x="1414" y="270" width="147" height="92" fill="#1a0b0b" />
+          <rect x="1414" y="376" width="147" height="92" fill="#1a0b0b" />
+          <text x="1487" y="228" text-anchor="middle" class="err" filter="url(#glow)">ERROR</text>
+          <text x="1487" y="334" text-anchor="middle" class="err e2" filter="url(#glow)">ERROR</text>
+          <rect x="1420" y="400" width="70" height="48" fill="#ff2a2a" class="err-block" filter="url(#glow)" />
+          <rect x="1414" y="482" width="147" height="84" fill="#7a7e84" stroke={O} stroke-width="3" />
+          <rect x="1470" y="516" width="36" height="8" rx="4" fill="#2d2f33" />
+          <!-- blind light falling across the shelf -->
+          <g opacity="0.25" filter="url(#blur8)">
+            {Array.from({ length: 6 }, (_, i) => <rect x="1400" y={300 + i * 46} width="175" height="20" fill="#fff" />)}
+          </g>
+        </g>
+
+        <!-- FLOOR -->
+        <rect y="560" width="1600" height="340" fill="url(#floor)" />
+        <g stroke="#7d7364" stroke-width="1.5" opacity="0.55">
+          {verticals.map((x) => <line x1={VX + (x - VX) * 0.32} y1="560" x2={x} y2="900" />)}
+          {horizontals.map((y) => <line x1="0" y1={y} x2="1600" y2={y} />)}
+        </g>
+        <line x1="0" y1="560" x2="1600" y2="560" stroke={O} stroke-width="3" opacity="0.6" />
+
+        <!-- spotlight -->
+        <polygon class="cone" points="700,0 900,0 1420,900 180,900" fill="#fff4dc" opacity="0.07" filter="url(#blur20)" />
+        <ellipse cx="830" cy="770" rx="700" ry="140" fill="url(#pool)" />
+
+        <!-- missing texture plane, leaning -->
+        <g class="missing">
+          <polygon points="96,830 206,630 292,646 186,842" fill="url(#missing)" stroke={O} stroke-width="4" />
+          <title>TODO: texture</title>
+        </g>
+
+        <!-- table shadow -->
+        <ellipse cx="840" cy="800" rx="640" ry="34" fill="#000" opacity="0.28" filter="url(#blur8)" />
+
+        <!-- TABLE -->
+        <polygon points="330,562 1350,562 1392,640 288,640" fill="#efe9de" stroke={O} stroke-width="4" stroke-linejoin="round" />
+        <path d="M288 640 L1392 640 L1398 764 Q1200 778 1000 766 Q800 780 600 766 Q420 778 282 764 Z" fill="url(#gingham)" stroke={O} stroke-width="4" stroke-linejoin="round" />
+        <g opacity="0.18">
+          {[420, 640, 860, 1080, 1290].map((x) => <path d={`M${x} 642 Q${x + 6} 700 ${x - 4} 768`} stroke={O} stroke-width="3" fill="none" />)}
+        </g>
+
+        <!-- ===== PROPS (each one is a link) ===== -->
+
+        <!-- Research: open notebook -->
+        <a href="/research" class="prop" aria-label="Research notebook">
+          <g class="lift">
+            <path d="M350 634 L452 626 L552 634 L544 600 L452 592 L360 600 Z" fill="#8a3434" stroke={O} stroke-width="4" stroke-linejoin="round" />
+            <path d="M362 624 L452 616 L452 586 L372 594 Z" fill="#f6eedc" stroke={O} stroke-width="3" stroke-linejoin="round" />
+            <path d="M452 616 L540 624 L532 594 L452 586 Z" fill="#f6eedc" stroke={O} stroke-width="3" stroke-linejoin="round" />
+            <g stroke="#3554a8" stroke-width="2" fill="none" opacity="0.8">
+              <path d="M382 602 L440 597 M380 609 L428 605 M384 616 L436 611" />
+              <circle cx="474" cy="600" r="4" /><circle cx="500" cy="596" r="4" /><circle cx="490" cy="612" r="4" /><circle cx="518" cy="610" r="4" />
+              <path d="M478 600 L496 597 M478 602 L487 610 M504 598 L514 607 M494 612 L514 611" />
+            </g>
+            <rect x="500" y="618" width="70" height="7" rx="3" fill="#e0523b" stroke={O} stroke-width="2.5" transform="rotate(-12 535 621)" />
+          </g>
+          <g class="anno">
+            <ellipse cx="455" cy="608" rx="118" ry="48" />
+            <text x="380" y="540" class="hand" font-size="34" transform="rotate(-5 380 540)">research notes</text>
+          </g>
+        </a>
+
+        <!-- Project Z: CRT -->
+        <a href="/projects/project-z" class="prop" aria-label="Project Z">
+          <ellipse cx="672" cy="520" rx="160" ry="110" fill="url(#crtglow)" class="crt-glow" />
+          <g class="lift">
+            <rect x="622" y="602" width="100" height="18" rx="4" fill="#b8a98a" stroke={O} stroke-width="4" />
+            <rect x="572" y="438" width="200" height="170" rx="18" fill="#dccfb2" stroke={O} stroke-width="4" />
+            <rect x="572" y="438" width="200" height="22" rx="10" fill="#efe4cb" opacity="0.6" />
+            <rect x="592" y="456" width="160" height="122" rx="14" fill="#2b2a26" stroke={O} stroke-width="3" />
+            <g clip-path="url(#screenclip)">
+              <rect x="600" y="466" width="144" height="102" fill="#06180c" />
+              <text x="610" y="490" class="crt-t">&gt; run</text>
+              <text x="610" y="512" class="crt-t">&gt; see</text>
+              <text x="610" y="534" class="crt-t">&gt; learn</text>
+              <rect x="610" y="544" width="10" height="14" fill="#62ff9b" class="cursor" />
+              <rect x="600" y="466" width="144" height="102" fill="url(#scan)" />
+              <rect x="600" y="460" width="144" height="24" fill="#62ff9b" opacity="0.07" class="roll" />
+              <path d="M606 472 Q640 466 690 470 L606 500 Z" fill="#fff" opacity="0.1" />
+            </g>
+            <circle cx="602" cy="592" r="6" fill="#8a7d63" stroke={O} stroke-width="2.5" />
+            <circle cx="622" cy="592" r="6" fill="#8a7d63" stroke={O} stroke-width="2.5" />
+            <path d="M700 588 L756 588 M700 594 L756 594" stroke={O} stroke-width="2.5" opacity="0.5" />
+            <circle cx="752" cy="452" r="9" fill="#e0523b" stroke={O} stroke-width="2.5" />
+            <text x="752" y="457" text-anchor="middle" font-size="12" class="mono" fill="#fff">Z</text>
+          </g>
+          <g class="anno">
+            <ellipse cx="672" cy="526" rx="128" ry="112" />
+            <text x="600" y="404" class="hand" font-size="34" transform="rotate(-4 600 404)">Project Z</text>
+          </g>
+        </a>
+
+        <!-- tracebank: cassette -->
+        <a href="/projects/tracebank" class="prop" aria-label="tracebank">
+          <g class="lift">
+            <g transform="rotate(-7 870 612)">
+              <rect x="795" y="520" width="150" height="92" rx="8" fill="#2d3a4a" stroke={O} stroke-width="4" />
+              <rect x="807" y="530" width="126" height="30" rx="4" fill="#f2e6c8" stroke={O} stroke-width="2" />
+              <text x="870" y="553" text-anchor="middle" class="hand" font-size="22" fill="#2d3a4a">trace_042</text>
+              <rect x="822" y="566" width="96" height="30" rx="13" fill="#140f0c" stroke={O} stroke-width="2" />
+              <g class="reel"><circle cx="842" cy="581" r="11" fill="#e9e2d3" /><path d="M842 572 V590 M833 581 H851" stroke="#140f0c" stroke-width="3" /></g>
+              <g class="reel"><circle cx="898" cy="581" r="11" fill="#e9e2d3" /><path d="M898 572 V590 M889 581 H907" stroke="#140f0c" stroke-width="3" /></g>
+              <path d="M830 612 L840 600 L900 600 L910 612" fill="#41505f" stroke={O} stroke-width="2.5" />
+            </g>
+          </g>
+          <g class="anno">
+            <ellipse cx="870" cy="566" rx="96" ry="70" />
+            <text x="820" y="482" class="hand" font-size="32" transform="rotate(3 820 482)">tracebank</text>
+          </g>
+        </a>
+
+        <!-- Kaggle / OSS: d20 -->
+        <a href="/oss" class="prop" aria-label="Kaggle and open source">
+          <g class="lift">
+            <polygon points="985,580 1012,595 1012,624 985,638 958,624 958,595" fill="#16161b" stroke={O} stroke-width="3.5" stroke-linejoin="round" />
+            <path d="M985 580 L972 610 L998 610 Z M972 610 L958 595 M998 610 L1012 595 M972 610 L985 638 L998 610 M972 610 L958 624 M998 610 L1012 624" stroke="#e9e2d3" stroke-width="1.6" fill="none" />
+            <text x="985" y="606" text-anchor="middle" font-size="11" class="mono" fill="#e9e2d3">20</text>
+          </g>
+        </a>
+
+        <!-- OSS: laptop seen from behind, lid covered in stickers -->
+        <a href="/oss" class="prop" aria-label="Open source contributions">
+          <g class="lift">
+            <path d="M1024 602 L1222 602 L1214 616 L1032 616 Z" fill="#9aa0a8" stroke={O} stroke-width="3.5" stroke-linejoin="round" />
+            <rect x="1038" y="478" width="172" height="124" rx="10" fill="#3a3f47" stroke={O} stroke-width="4" />
+            <circle cx="1074" cy="514" r="18" fill="#ffcf3f" stroke={O} stroke-width="2.5" />
+            <text x="1074" y="519" text-anchor="middle" class="mono" font-size="13" font-weight="700" fill={O}>uv</text>
+            <polygon points="1132,500 1150,510 1150,532 1132,542 1114,532 1114,510" fill="#38c48a" stroke={O} stroke-width="2.5" />
+            <text x="1132" y="525" text-anchor="middle" class="mono" font-size="11" font-weight="700" fill={O}>PR ✓</text>
+            <g transform="rotate(-10 1180 560)">
+              <rect x="1150" y="548" width="56" height="22" rx="4" fill="#ff5fa2" stroke={O} stroke-width="2.5" />
+              <text x="1178" y="564" text-anchor="middle" class="mono" font-size="12" font-weight="700" fill={O}>arm64</text>
+            </g>
+            <path d="M1186 492 l5 11 12 1 -9 8 3 12 -11 -6 -11 6 3 -12 -9 -8 12 -1 z" fill="#8ea4ff" stroke={O} stroke-width="2.5" />
+            <circle cx="1088" cy="570" r="14" fill="#e0523b" stroke={O} stroke-width="2.5" />
+            <text x="1088" y="575" text-anchor="middle" class="mono" font-size="10" font-weight="700" fill="#fff">OSS</text>
+          </g>
+          <g class="anno">
+            <ellipse cx="1090" cy="555" rx="148" ry="96" />
+            <text x="1020" y="448" class="hand" font-size="32" transform="rotate(-3 1020 448)">OSS + Kaggle</text>
+          </g>
+        </a>
+
+        <!-- Reminders: desk calendar -->
+        <a href="/projects/reminders" class="prop" aria-label="Reminders">
+          <g class="lift">
+            <path d="M1236 612 L1250 528 L1316 528 L1330 612 Z" fill="#c7bba3" stroke={O} stroke-width="3.5" stroke-linejoin="round" />
+            <rect x="1238" y="526" width="92" height="84" rx="6" fill="#f6eedc" stroke={O} stroke-width="4" />
+            <rect x="1238" y="526" width="92" height="24" rx="6" fill="#d8432f" stroke={O} stroke-width="4" />
+            <text id="cal-month" x="1284" y="544" text-anchor="middle" class="mono" font-size="14" font-weight="700" fill="#fff">{month}</text>
+            <text id="cal-day" x="1284" y="594" text-anchor="middle" class="display" font-size="40" fill={O}>{day}</text>
+            {[1252, 1272, 1296, 1316].map((x) => <circle cx={x} cy="526" r="4" fill="#d9d4cb" stroke={O} stroke-width="2" />)}
+          </g>
+          <g class="anno">
+            <ellipse cx="1284" cy="570" rx="78" ry="70" />
+            <text x="1236" y="482" class="hand" font-size="32" transform="rotate(4 1236 482)">Reminders</text>
+          </g>
+        </a>
+
+        <!-- Errand: courier drone hovering over the bench -->
+        <a href="/projects/errand" class="prop" aria-label="Errand">
+          <g class="drone">
+            <g class="lift">
+              <line x1="980" y1="382" x2="980" y2="414" stroke={O} stroke-width="2.5" />
+              <rect x="964" y="414" width="32" height="28" rx="3" fill="#c0915a" stroke={O} stroke-width="3" />
+              <path d="M980 414 V442 M964 428 H996" stroke="#8a6238" stroke-width="3" />
+              <path d="M930 360 L1030 360" stroke={O} stroke-width="5" stroke-linecap="round" />
+              <ellipse cx="980" cy="368" rx="48" ry="17" fill="#f2b33d" stroke={O} stroke-width="4" />
+              <rect x="958" y="362" width="44" height="10" rx="5" fill="#1b100a" />
+              <circle cx="972" cy="367" r="3" fill="#5dfff0" class="blink" />
+              <circle cx="988" cy="367" r="3" fill="#5dfff0" class="blink" />
+              <ellipse cx="930" cy="352" rx="34" ry="6" fill="#fff" opacity="0.55" class="rotor" />
+              <ellipse cx="1030" cy="352" rx="34" ry="6" fill="#fff" opacity="0.55" class="rotor" />
+              <line x1="930" y1="352" x2="930" y2="360" stroke={O} stroke-width="4" />
+              <line x1="1030" y1="352" x2="1030" y2="360" stroke={O} stroke-width="4" />
+            </g>
+          </g>
+          <g class="anno">
+            <ellipse cx="980" cy="394" rx="104" ry="70" />
+            <text x="1062" y="330" class="hand" font-size="32" transform="rotate(5 1062 330)">Errand</text>
+          </g>
+        </a>
+
+        <!-- Writing: stack of zines on the floor -->
+        <a href="/writing" class="prop" aria-label="Writing">
+          <ellipse cx="1452" cy="806" rx="90" ry="14" fill="#000" opacity="0.25" filter="url(#blur8)" />
+          <g class="lift">
+            <path d="M1380 790 L1520 786 L1524 802 L1384 806 Z" fill="#2f6f8f" stroke={O} stroke-width="3.5" stroke-linejoin="round" />
+            <path d="M1386 774 L1516 772 L1520 788 L1388 790 Z" fill="#f2b33d" stroke={O} stroke-width="3.5" stroke-linejoin="round" />
+            <path d="M1378 758 L1514 760 L1516 774 L1380 774 Z" fill="#efe7d6" stroke={O} stroke-width="3.5" stroke-linejoin="round" />
+            <g transform="rotate(-4 1450 742)">
+              <rect x="1388" y="712" width="128" height="46" rx="3" fill="#e0523b" stroke={O} stroke-width="3.5" />
+              <text x="1452" y="742" text-anchor="middle" class="display" font-size="18" fill="#fff4dc">ZINE #7</text>
+            </g>
+          </g>
+          <g class="anno">
+            <ellipse cx="1452" cy="758" rx="98" ry="62" />
+            <text x="1360" y="680" class="hand" font-size="32" transform="rotate(-6 1360 680)">stuff I wrote</text>
+          </g>
+        </a>
+
+        <!-- dust in the light -->
+        <g class="motes">
+          {motes.map((m) => <circle cx={m.x} cy={m.y} r={m.r} fill="#ffe3b8" style={`--d:${m.d}s;--delay:${m.delay}s`} />)}
+        </g>
+
+        <rect width="1600" height="900" fill="url(#vignette)" pointer-events="none" />
+      </svg>
+    </section>
+
+    <!-- What's on the bench, as a readable list (main way in on phones) -->
+    <section class="notes">
+      <h2>On the bench</h2>
+      <ul class="bench">
+        {
+          bench.map((b, i) => (
+            <li style={`--r:${(i % 2 ? 1 : -1) * (0.6 + (i % 3) * 0.4)}deg`}>
+              <a href={b.href}>
+                <span class="hand-label">{b.label}</span>
+                <strong>{b.title}</strong>
+                <span>{b.text}</span>
+              </a>
+            </li>
+          ))
+        }
+      </ul>
+
+      <div class="papers">
+        <article class="paper" style="--r:-1.2deg">
+          <span class="tape"></span>
+          <h3>Research</h3>
+          <ul>
+            <li>Overrides the chain of thought doesn't show <em class="stamp">in progress</em></li>
+            <li>Why do LLMs all sound the same? <em class="stamp">early</em></li>
+            <li>What if malloc filled holes from the top? <em class="stamp circled">writing up</em></li>
+          </ul>
+          <a href="/research">read the notes →</a>
+        </article>
+        <article class="paper" style="--r:1deg">
+          <span class="tape"></span>
+          <h3>Out in the open</h3>
+          <ul>
+            <li><code>kubeflow/pipelines</code> moved tooling to uv <em class="stamp">merged</em></li>
+            <li><code>cortexproject/cortex</code> arm64 tests <em class="stamp">merged</em></li>
+            <li>Name That LLM on Kaggle <em class="stamp circled">ongoing</em></li>
+          </ul>
+          <a href="/oss">all of it →</a>
+        </article>
+      </div>
+
+      <footer class="foot">
+        <a href="https://github.com/sh4shv4t">GitHub</a>
+        <a href="https://medium.com/@shashvat.k.singh.16">Medium</a>
+      </footer>
+    </section>
+
+    <a class="draft-tag" href="/drafts">Draft: Studio Stage</a>
+
+    <script>
+      // Slowly spin the wireframe mesh
+      const RINGS: [number, number][] = [
+        [40, 70], [110, 52], [180, 40], [250, 36], [320, 42], [390, 60], [460, 92], [520, 140], [574, 200],
+      ];
+      const SEG = 10;
+      const f = (p: number[]) => `${p[0].toFixed(1)} ${p[1].toFixed(1)}`;
+      function mesh(t: number) {
+        const pts = RINGS.map(([y, r], i) =>
+          Array.from({ length: SEG }, (_, j) => {
+            const a = (j / SEG) * Math.PI * 2 + t + i * 0.35;
+            return [1170 + r * Math.cos(a), y + r * 0.22 * Math.sin(a)];
+          }),
+        );
+        let d = '';
+        pts.forEach((ring, i) =>
+          ring.forEach((p, j) => {
+            d += `M${f(p)}L${f(ring[(j + 1) % SEG])}`;
+            if (i < pts.length - 1) d += `M${f(p)}L${f(pts[i + 1][j])}M${f(p)}L${f(pts[i + 1][(j + 1) % SEG])}`;
+          }),
+        );
+        return d;
+      }
+      const el = document.getElementById('mesh');
+      const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
+      if (el && !still) {
+        let visible = true;
+        new IntersectionObserver(([e]) => (visible = e.isIntersecting)).observe(el);
+        const tick = (ms: number) => {
+          if (visible) el.setAttribute('d', mesh(ms / 6000));
+          requestAnimationFrame(tick);
+        };
+        requestAnimationFrame(tick);
+      }
+
+      // Calendar shows today's date for whoever's looking
+      const d = new Date();
+      const m = document.getElementById('cal-month');
+      const day = document.getElementById('cal-day');
+      if (m) m.textContent = d.toLocaleString('en', { month: 'short' }).toUpperCase();
+      if (day) day.textContent = String(d.getDate());
+    </script>
+
+    <style>
+      :root {
+        --ink: #1b100a;
+        --wall: #24160d;
+        --amber: #ffa64d;
+        --cream: #f3eee4;
+        --yellow: #ffd36b;
+        --red: #e0523b;
+        --teal: #3fd1b0;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: var(--wall);
+        color: var(--cream);
+        font-family: 'Work Sans', system-ui, sans-serif;
+        overflow-x: hidden;
+      }
+      a {
+        color: inherit;
+      }
+
+      /* ---------- stage ---------- */
+      .stage-wrap {
+        position: relative;
+        background: #2a1a10;
+      }
+      .stage {
+        display: block;
+        width: 100%;
+        height: min(100svh, 56.25vw);
+      }
+      .hand {
+        font-family: 'Caveat', cursive;
+        font-weight: 700;
+      }
+      .mono {
+        font-family: 'Space Mono', monospace;
+      }
+      .display {
+        font-family: 'Archivo Black', sans-serif;
+      }
+      .note {
+        opacity: 0.75;
+      }
+
+      .topnav {
+        position: absolute;
+        top: 18px;
+        right: 20px;
+        z-index: 3;
+        display: flex;
+        gap: 6px;
+        font-family: 'Space Mono', monospace;
+        font-size: 0.85rem;
+      }
+      .topnav a {
+        text-decoration: none;
+        padding: 6px 10px;
+        border-radius: 8px;
+        background: rgb(20 10 5 / 0.55);
+        border: 1px solid rgb(255 220 180 / 0.15);
+        transition: background 0.2s, color 0.2s;
+      }
+      .topnav a:hover {
+        background: var(--yellow);
+        color: var(--ink);
+      }
+
+      .hero {
+        position: absolute;
+        z-index: 2;
+        top: 7%;
+        left: 4%;
+        width: min(560px, 40%);
+        pointer-events: none;
+      }
+      .hero a {
+        pointer-events: auto;
+      }
+      .kicker {
+        font-family: 'Space Mono', monospace;
+        font-size: 0.85rem;
+        color: var(--amber);
+        margin: 0 0 8px;
+      }
+      h1 {
+        font-family: 'Archivo Black', sans-serif;
+        font-size: clamp(2.4rem, 5.4vw, 5rem);
+        line-height: 0.95;
+        margin: 0 0 18px;
+        color: var(--yellow);
+        letter-spacing: -0.01em;
+        text-shadow:
+          3px 3px 0 var(--ink),
+          -2px -2px 0 var(--ink),
+          2px -2px 0 var(--ink),
+          -2px 2px 0 var(--ink),
+          8px 10px 0 rgb(0 0 0 / 0.35);
+        animation: drop 0.9s cubic-bezier(0.2, 1.4, 0.4, 1) both;
+      }
+      .bio {
+        font-size: clamp(0.95rem, 1.2vw, 1.1rem);
+        line-height: 1.55;
+        color: #f1e3cc;
+        text-shadow: 0 1px 2px rgb(0 0 0 / 0.6);
+        margin: 0;
+        animation: fade 0.8s 0.3s both;
+      }
+      .hint {
+        font-family: 'Caveat', cursive;
+        font-size: 1.8rem;
+        color: var(--yellow);
+        margin: 10px 0 0;
+        transform: rotate(-3deg);
+        animation: fade 0.8s 0.6s both;
+      }
+
+      /* blinds drift like the sun is moving */
+      .blinds {
+        animation: drift 16s ease-in-out infinite alternate;
+      }
+      .cone {
+        animation: flick 7s ease-in-out infinite;
+      }
+      .err {
+        font-family: 'Archivo Black', sans-serif;
+        font-size: 38px;
+        fill: #ff2a2a;
+      }
+      .e2 {
+        animation: flicker 3.2s steps(1) infinite;
+      }
+      .err-block {
+        animation: flicker 2.1s steps(1) infinite reverse;
+      }
+      .crt-t {
+        font-family: 'Space Mono', monospace;
+        font-size: 16px;
+        fill: #62ff9b;
+      }
+      .cursor {
+        animation: blink 1s steps(1) infinite;
+      }
+      .roll {
+        animation: roll 4s linear infinite;
+      }
+      .crt-glow {
+        animation: pulse 3s ease-in-out infinite;
+      }
+      .reel {
+        transform-box: fill-box;
+        transform-origin: center;
+        animation: spin 2.4s linear infinite;
+      }
+      .drone {
+        animation: bob 3s ease-in-out infinite;
+      }
+      .rotor {
+        transform-box: fill-box;
+        transform-origin: center;
+        animation: whirr 0.12s linear infinite;
+      }
+      .blink {
+        animation: blink 1.6s steps(1) infinite;
+      }
+      .motes circle {
+        animation: float var(--d) ease-in-out var(--delay) infinite alternate;
+        opacity: 0.6;
+      }
+
+      /* props: lift on hover, dashed annotation circle draws in */
+      .prop {
+        cursor: pointer;
+        outline: none;
+      }
+      .prop .lift {
+        transform-box: fill-box;
+        transform-origin: 50% 100%;
+        transition: transform 0.35s cubic-bezier(0.3, 1.6, 0.5, 1);
+      }
+      .prop:hover .lift,
+      .prop:focus-visible .lift {
+        transform: translateY(-10px) rotate(-1.5deg) scale(1.04);
+      }
+      .anno {
+        opacity: 0;
+        transition: opacity 0.2s;
+        pointer-events: none;
+      }
+      .anno ellipse {
+        fill: none;
+        stroke: #fff;
+        stroke-width: 4;
+        stroke-dasharray: 18 12;
+        stroke-linecap: round;
+        animation: march 8s linear infinite;
+      }
+      .anno text {
+        fill: #fff;
+        paint-order: stroke;
+        stroke: var(--ink);
+        stroke-width: 6px;
+      }
+      .prop:hover .anno,
+      .prop:focus-visible .anno {
+        opacity: 1;
+      }
+
+      /* ---------- notes below the stage ---------- */
+      .notes {
+        position: relative;
+        max-width: 1100px;
+        margin: 0 auto;
+        padding: 72px 16px 40px;
+      }
+      .notes h2 {
+        font-family: 'Archivo Black', sans-serif;
+        font-size: clamp(1.8rem, 4vw, 2.6rem);
+        color: var(--yellow);
+        margin: 0 0 24px;
+        text-shadow: 3px 3px 0 var(--ink);
+      }
+      .bench {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+        display: grid;
+        gap: 14px;
+      }
+      @media (min-width: 720px) {
+        .bench {
+          grid-template-columns: repeat(2, 1fr);
+        }
+      }
+      .bench a {
+        display: grid;
+        gap: 2px;
+        padding: 16px 18px;
+        text-decoration: none;
+        background: #2f1d12;
+        border: 2px solid var(--ink);
+        border-radius: 12px;
+        box-shadow: 5px 5px 0 var(--ink);
+        transform: rotate(var(--r));
+        transition: transform 0.25s cubic-bezier(0.3, 1.6, 0.5, 1), background 0.2s;
+      }
+      .bench a:hover {
+        transform: rotate(0deg) translateY(-4px);
+        background: #3a2416;
+      }
+      .bench strong {
+        font-family: 'Archivo Black', sans-serif;
+        font-weight: 400;
+        font-size: 1.25rem;
+      }
+      .bench span:last-child {
+        color: #d7c5a8;
+        font-size: 0.95rem;
+      }
+      .hand-label {
+        font-family: 'Caveat', cursive;
+        font-size: 1.3rem;
+        color: var(--amber);
+      }
+
+      .papers {
+        display: grid;
+        gap: 28px;
+        margin-top: 64px;
+      }
+      @media (min-width: 820px) {
+        .papers {
+          grid-template-columns: 1fr 1fr;
+        }
+      }
+      .paper {
+        position: relative;
+        background: #efe7d6;
+        color: var(--ink);
+        padding: 30px 26px 22px;
+        border-radius: 3px;
+        box-shadow: 0 18px 30px -12px rgb(0 0 0 / 0.6);
+        transform: rotate(var(--r));
+        background-image: repeating-linear-gradient(transparent 0 29px, rgb(60 90 160 / 0.15) 29px 30px);
+      }
+      .tape {
+        position: absolute;
+        top: -12px;
+        left: 50%;
+        width: 110px;
+        height: 26px;
+        transform: translateX(-50%) rotate(-3deg);
+        background: rgb(255 240 200 / 0.75);
+        border: 1px solid rgb(0 0 0 / 0.08);
+      }
+      .paper h3 {
+        font-family: 'Archivo Black', sans-serif;
+        font-weight: 400;
+        font-size: 1.5rem;
+        margin: 0 0 10px;
+      }
+      .paper ul {
+        padding-left: 1.1em;
+        margin: 0 0 14px;
+        line-height: 1.9;
+      }
+      .paper code {
+        font-family: 'Space Mono', monospace;
+        font-size: 0.85em;
+      }
+      .paper a {
+        font-family: 'Caveat', cursive;
+        font-size: 1.5rem;
+        color: var(--red);
+        text-decoration: none;
+      }
+      .stamp {
+        font-style: normal;
+        font-family: 'Space Mono', monospace;
+        font-size: 0.72rem;
+        text-transform: uppercase;
+        color: var(--red);
+        border: 2px solid var(--red);
+        border-radius: 4px;
+        padding: 0 5px;
+        margin-left: 6px;
+        white-space: nowrap;
+        display: inline-block;
+        transform: rotate(-4deg);
+      }
+      .stamp.circled {
+        border: none;
+        outline: 2.5px dashed var(--ink);
+        outline-offset: 4px;
+        border-radius: 50%;
+        color: var(--ink);
+      }
+      .foot {
+        display: flex;
+        gap: 20px;
+        justify-content: center;
+        margin-top: 72px;
+        font-family: 'Space Mono', monospace;
+        font-size: 0.9rem;
+        opacity: 0.8;
+      }
+
+      .draft-tag {
+        position: fixed;
+        left: 12px;
+        bottom: 12px;
+        z-index: 10;
+        font-family: 'Space Mono', monospace;
+        font-size: 0.75rem;
+        padding: 6px 10px;
+        background: #ff00e6;
+        color: #fff;
+        text-decoration: none;
+        border: 2px solid var(--ink);
+        border-radius: 6px;
+      }
+
+      /* ---------- small screens: hero above the stage ---------- */
+      @media (max-width: 900px) {
+        .stage-wrap {
+          display: flex;
+          flex-direction: column;
+        }
+        .topnav {
+          position: static;
+          order: 0;
+          padding: 14px 16px 0;
+          flex-wrap: wrap;
+        }
+        .hero {
+          position: static;
+          order: 1;
+          width: auto;
+          padding: 28px 16px 20px;
+        }
+        .stage {
+          order: 2;
+        }
+        .note {
+          display: none;
+        }
+      }
+
+      @keyframes drift {
+        from { transform: translateX(-14px); opacity: 0.85; }
+        to { transform: translateX(14px); opacity: 1; }
+      }
+      @keyframes flick {
+        0%, 100% { opacity: 0.07; }
+        50% { opacity: 0.1; }
+      }
+      @keyframes flicker {
+        0%, 100% { opacity: 1; }
+        42% { opacity: 0.2; }
+        46% { opacity: 1; }
+        71% { opacity: 0.4; }
+        74% { opacity: 1; }
+      }
+      @keyframes blink {
+        50% { opacity: 0; }
+      }
+      @keyframes roll {
+        from { transform: translateY(0); }
+        to { transform: translateY(120px); }
+      }
+      @keyframes pulse {
+        50% { opacity: 0.6; }
+      }
+      @keyframes spin {
+        to { transform: rotate(360deg); }
+      }
+      @keyframes bob {
+        0%, 100% { transform: translateY(0); }
+        50% { transform: translateY(-12px); }
+      }
+      @keyframes whirr {
+        50% { transform: scaleX(0.55); }
+      }
+      @keyframes float {
+        from { transform: translate(0, 0); }
+        to { transform: translate(18px, -26px); }
+      }
+      @keyframes march {
+        to { stroke-dashoffset: -300; }
+      }
+      @keyframes drop {
+        from { transform: translateY(-30px) rotate(-3deg); opacity: 0; }
+        to { transform: none; opacity: 1; }
+      }
+      @keyframes fade {
+        from { opacity: 0; transform: translateY(8px); }
+        to { opacity: 1; transform: none; }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        *,
+        *::before,
+        *::after {
+          animation: none !important;
+          transition: none !important;
+        }
+      }
+    </style>
+  </body>
+</html>

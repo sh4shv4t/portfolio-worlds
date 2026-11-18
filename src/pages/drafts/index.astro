@@ -1,0 +1,175 @@
+---
+// Index of design drafts. Delete src/pages/drafts/ once a direction is picked.
+const drafts = [
+  {
+    slug: 'workbench',
+    name: 'Workbench',
+    vibe: 'Your sketch: pixel art, neo-noir, VHS',
+    blurb: 'An engineering student\'s bench at 3 AM, drawn as pixel art. Projects live in the shelf cubbies, the about me is post-it notes. Aim at something and the room dims around it; click and the tape fast-forwards.',
+    swatch: ['#0d0718', '#ff3d8b', '#22e1d6', '#b06bff', '#ffb35c'],
+  },
+  {
+    slug: 'studio',
+    name: 'Studio Stage',
+    vibe: 'Game dev set, SFM-ish toys, blind light',
+    blurb: 'A messy workbench under warm light through blinds. Every prop is a project: the CRT, the cassette, the drone. Wireframes, missing textures and ERROR signs left in on purpose.',
+    swatch: ['#2a1a10', '#ffa64d', '#ffd36b', '#ff00e6', '#62ff9b'],
+  },
+  {
+    slug: 'neon-alley',
+    name: 'Neon Alley',
+    vibe: 'Neo-Tokyo, synthwave, rain',
+    blurb: 'A wet back alley at night. Projects hang as flickering neon shop signs with Japanese sublabels, a synthwave sun sinking behind the skyline.',
+    swatch: ['#0b0820', '#ff2a6d', '#05d9e8', '#ff9e3d', '#7b2cbf'],
+  },
+  {
+    slug: 'grimoire',
+    name: 'Grimoire',
+    vibe: 'Cyber-occult, dark fantasy',
+    blurb: 'A cyberdeck crossed with a forbidden spellbook. Projects are tarot cards with circuit-trace borders, research is a codex.',
+    swatch: ['#0d0a0a', '#b08d57', '#6e1423', '#3fb5a3', '#e8dcc4'],
+  },
+  {
+    slug: 'mainframe',
+    name: 'Mainframe',
+    vibe: 'Retro-futurist CRT terminal',
+    blurb: 'The future as imagined in 1979. Boots up, then you drive it with the arrow keys. Amber phosphor, chunky bezel.',
+    swatch: ['#0d0a05', '#ffb000', '#7a5300', '#5bd16a', '#cfc6b0'],
+  },
+];
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Design drafts · Shashvat Singh</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Archivo+Black&display=swap" rel="stylesheet" />
+  </head>
+  <body>
+    <main>
+      <p class="kicker">// design drafts</p>
+      <h1>Pick a world</h1>
+      <p class="lede">Five directions for the home page. Same content, very different rooms. Click through, poke things, then tell me what to keep and what to steal from the others.</p>
+      <ol>
+        {
+          drafts.map((d, i) => (
+            <li>
+              <a href={`/drafts/${d.slug}`}>
+                <span class="num">0{i + 1}</span>
+                <span class="body">
+                  <strong>{d.name}</strong>
+                  <em>{d.vibe}</em>
+                  <span class="blurb">{d.blurb}</span>
+                </span>
+                <span class="swatch">
+                  {d.swatch.map((c) => <i style={`background:${c}`} />)}
+                </span>
+              </a>
+            </li>
+          ))
+        }
+      </ol>
+      <p class="back"><a href="/">current plain site →</a></p>
+    </main>
+
+    <style>
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: #111014;
+        color: #ece8df;
+        font-family: 'Space Mono', monospace;
+      }
+      main {
+        max-width: 860px;
+        margin: 0 auto;
+        padding: 64px 16px;
+      }
+      .kicker {
+        color: #ffa64d;
+        margin: 0;
+      }
+      h1 {
+        font-family: 'Archivo Black', sans-serif;
+        font-size: clamp(2.4rem, 7vw, 4rem);
+        margin: 8px 0 12px;
+      }
+      .lede {
+        color: #b7b2a8;
+        max-width: 60ch;
+        line-height: 1.6;
+      }
+      ol {
+        list-style: none;
+        padding: 0;
+        margin: 40px 0 0;
+        display: grid;
+        gap: 14px;
+      }
+      li a {
+        display: grid;
+        grid-template-columns: auto 1fr;
+        gap: 6px 18px;
+        padding: 20px;
+        border: 1px solid #2c2a31;
+        border-radius: 14px;
+        background: #18171c;
+        text-decoration: none;
+        color: inherit;
+        transition: transform 0.2s, border-color 0.2s;
+      }
+      li a:hover {
+        transform: translateY(-3px);
+        border-color: #ffa64d;
+      }
+      .num {
+        color: #6d6a73;
+        font-size: 0.9rem;
+        padding-top: 4px;
+      }
+      .body {
+        display: grid;
+        gap: 4px;
+      }
+      strong {
+        font-family: 'Archivo Black', sans-serif;
+        font-weight: 400;
+        font-size: 1.5rem;
+      }
+      em {
+        font-style: normal;
+        color: #ffa64d;
+        font-size: 0.85rem;
+      }
+      .blurb {
+        color: #b7b2a8;
+        font-size: 0.9rem;
+        line-height: 1.55;
+      }
+      .swatch {
+        grid-column: 2;
+        display: flex;
+        gap: 6px;
+        margin-top: 8px;
+      }
+      .swatch i {
+        width: 26px;
+        height: 26px;
+        border-radius: 6px;
+        border: 1px solid #ffffff22;
+      }
+      .back a {
+        color: #b7b2a8;
+      }
+      .back {
+        margin-top: 40px;
+      }
+    </style>
+  </body>
+</html>

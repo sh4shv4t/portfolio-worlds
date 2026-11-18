@@ -1,0 +1,1192 @@
+---
+// Draft: Mainframe. A retro-futurist amber CRT workstation.
+// Standalone page on purpose (no Base layout) so it can be judged on its own.
+const projects = [
+  {
+    key: 'errand',
+    name: 'Errand',
+    status: 'BUILDING',
+    year: '2026',
+    href: '/projects/errand',
+    desc: 'Send your model on fewer errands. A marketplace where big models hand off tasks to cheaper specialist models.',
+  },
+  {
+    key: 'tracebank',
+    name: 'tracebank',
+    status: 'BUILDING',
+    year: '2026',
+    href: '/projects/tracebank',
+    desc: 'A plugin that collects consented, long-horizon coding agent traces, scrubbed on your own machine.',
+  },
+  {
+    key: 'project-z',
+    name: 'Project Z',
+    status: 'BUILDING',
+    year: '2026',
+    href: '/projects/project-z',
+    desc: 'A self-hostable platform for agents that get better over time. Run, see, learn.',
+  },
+  {
+    key: 'reminders',
+    name: 'Reminders',
+    status: 'SHIPPED',
+    year: '2026',
+    href: '/projects/reminders',
+    desc: "A small Windows app so birthdays, events and tasks don't slip through.",
+  },
+];
+
+const research = [
+  { title: "Overrides the chain of thought doesn't show", status: 'IN PROGRESS' },
+  { title: 'Why do LLMs all sound the same?', status: 'EARLY' },
+  { title: 'What if malloc filled holes from the top?', status: 'WRITING UP' },
+];
+
+const oss = [
+  { name: 'kubeflow/pipelines', status: 'MERGED', ok: true },
+  { name: 'cortexproject/cortex', status: 'MERGED', ok: true },
+  { name: 'kubeflow/website', status: 'MERGED', ok: true },
+  { name: 'Kaggle: Name That LLM', status: 'ONGOING', ok: false },
+];
+
+const pad = (n: number) => String(n + 1).padStart(2, '0');
+const tree = (i: number, len: number) => (i === len - 1 ? '└─' : '├─');
+---
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Shashvat Singh // Mainframe</title>
+  <meta name="description" content="Shashvat Singh builds stuff around LLM agents: how they run, how you figure out where they went wrong and how they get better over time." />
+  <meta name="theme-color" content="#0d0a05" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;600&family=VT323&display=swap" rel="stylesheet" />
+  <script is:inline>
+    (function () {
+      var h = document.documentElement;
+      h.classList.add('js');
+      var reduce = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+      // No boot show for reduced motion or a tab that opened in the background.
+      if (!reduce && !document.hidden) {
+        h.classList.add('booting');
+        // Fail-safe: never leave the screen blank if the boot script dies.
+        var now = window.performance && performance.now ? performance.now() : 0;
+        setTimeout(function () { h.classList.remove('booting'); h.classList.add('ready'); }, Math.max(0, 2600 - now));
+      }
+    })();
+  </script>
+  <style is:global>
+    :root {
+      --amber: #ffb000;
+      --amber-hi: #ffd27a;
+      --amber-mid: #d99400;
+      --amber-dim: #9a6700;
+      --amber-faint: #4a3204;
+      --bg: #0f0b05;
+      --ink: #0d0a05;
+      --ok: #8fd46f;
+      --ok-dim: #5c9a48;
+      --glow: 1;
+      --plastic-hi: #ece4cf;
+      --plastic: #d9cfb6;
+      --plastic-lo: #bfb498;
+      --plastic-edge: #8c8269;
+      --desk: #1d1b17;
+    }
+    *, *::before, *::after { box-sizing: border-box; }
+    html { -webkit-text-size-adjust: 100%; height: 100%; }
+    body {
+      margin: 0;
+      height: 100vh;
+      height: 100svh;
+      overflow: hidden;
+      display: grid;
+      place-items: center;
+      background:
+        radial-gradient(ellipse 80% 55% at 50% 0%, rgba(255, 200, 120, 0.10), transparent 70%),
+        radial-gradient(ellipse 120% 80% at 50% 120%, #0b0a08, transparent 60%),
+        var(--desk);
+      color: var(--amber);
+      font-family: 'VT323', 'IBM Plex Mono', ui-monospace, monospace;
+    }
+    a { color: inherit; }
+    .sr-only {
+      position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+      overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+    }
+
+    /* ---------- Console housing ----------
+       The whole console is sized from the viewport so it always fits on one screen.
+       --u is one "design pixel" (1px at 1440x860), used for all the plastic chrome. */
+    .console {
+      --u: clamp(0.6px, min(100vw / 1440, 100svh / 860), 1.2px);
+      --gap: clamp(8px, 2svh, 22px);
+      --cw: min(1440px, 100vw - 2 * var(--gap), (100svh - 2 * var(--gap)) * 1.55);
+      position: relative;
+      display: flex; flex-direction: column;
+      width: var(--cw);
+      height: min(100svh - 2 * var(--gap), var(--cw) * 0.82);
+      padding: calc(14 * var(--u)) calc(22 * var(--u)) calc(16 * var(--u));
+      border-radius: calc(20 * var(--u)) calc(20 * var(--u)) calc(12 * var(--u)) calc(12 * var(--u));
+      background:
+        linear-gradient(180deg, var(--plastic-hi) 0%, var(--plastic) 30%, var(--plastic-lo) 100%);
+      box-shadow:
+        inset 0 2px 0 rgba(255, 255, 255, 0.7),
+        inset 0 -3px 0 rgba(0, 0, 0, 0.18),
+        0 2px 0 var(--plastic-edge),
+        0 30px 60px -10px rgba(0, 0, 0, 0.7),
+        0 8px 18px rgba(0, 0, 0, 0.45);
+    }
+    /* fine plastic grain */
+    .console::before {
+      content: '';
+      position: absolute; inset: 0;
+      border-radius: inherit;
+      pointer-events: none;
+      background: repeating-linear-gradient(90deg, rgba(0,0,0,0.018) 0 1px, transparent 1px 3px);
+    }
+    .topstrip {
+      flex: none;
+      display: flex; align-items: center;
+      gap: calc(16 * var(--u));
+      min-height: 22px;
+      margin: 0 calc(6 * var(--u)) calc(10 * var(--u));
+      font-family: 'IBM Plex Mono', monospace;
+      color: #5d5644;
+      text-shadow: 0 1px 0 rgba(255, 255, 255, 0.65);
+      position: relative; z-index: 2;
+    }
+    .brand { display: flex; align-items: baseline; gap: 12px; min-width: 0; }
+    .brand b {
+      font-weight: 600; letter-spacing: 0.18em; font-size: max(12px, calc(15 * var(--u))); color: #4a4435;
+    }
+    .brand span { font-size: max(9px, calc(11 * var(--u))); letter-spacing: 0.22em; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .stripes { display: flex; gap: 4px; margin-left: auto; }
+    .stripes i { display: block; width: calc(26 * var(--u)); height: 5px; border-radius: 1px; }
+    .stripes i:nth-child(1) { background: #c9772b; }
+    .stripes i:nth-child(2) { background: #d9a13a; }
+    .stripes i:nth-child(3) { background: #8d6b3f; }
+    .screws { display: flex; gap: 10px; }
+    .screw {
+      width: 12px; height: 12px; border-radius: 50%;
+      background: radial-gradient(circle at 35% 35%, #f4efe2, #a69c84 60%, #6f6753);
+      box-shadow: inset 0 0 0 1px rgba(0,0,0,0.25), 0 1px 0 rgba(255,255,255,0.6);
+      position: relative;
+    }
+    .screw::after {
+      content: ''; position: absolute; left: 2px; right: 2px; top: 5px; height: 2px;
+      background: rgba(60, 54, 40, 0.7); transform: rotate(35deg);
+    }
+
+    /* the draft sticker lives on the housing, so it never sits on top of a control */
+    .draft-tag {
+      flex: none;
+      font-family: 'IBM Plex Mono', monospace; font-size: 11px; font-weight: 600; letter-spacing: 0.08em;
+      color: #2b2924; text-decoration: none; text-shadow: none;
+      padding: 3px 9px;
+      background: #f1e7a8;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.35);
+      transform: rotate(-2deg);
+      white-space: nowrap;
+    }
+    .draft-tag:hover, .draft-tag:focus-visible { background: #ffd27a; }
+    .draft-tag:focus-visible { outline: 3px solid var(--amber-mid); outline-offset: 3px; }
+
+    /* recessed frame around the tube */
+    .well {
+      flex: 1 1 auto;
+      min-height: 0;
+      display: flex;
+      padding: calc(18 * var(--u));
+      border-radius: calc(30 * var(--u));
+      background: linear-gradient(180deg, #2c2922, #1d1b16);
+      box-shadow:
+        inset 0 6px 14px rgba(0, 0, 0, 0.75),
+        inset 0 -2px 0 rgba(255, 255, 255, 0.06),
+        0 1px 0 rgba(255, 255, 255, 0.75),
+        0 -1px 0 rgba(0, 0, 0, 0.2);
+    }
+
+    /* ---------- The tube ---------- */
+    .screen {
+      flex: 1 1 auto;
+      min-width: 0; min-height: 0;
+      position: relative;
+      overflow: hidden;
+      isolation: isolate;
+      container: crt / size;
+      border-radius: calc(26 * var(--u)) / calc(34 * var(--u));
+      background: var(--bg);
+      line-height: 1.22;
+      color: var(--amber);
+      text-shadow:
+        0 0 calc(3px * var(--glow)) rgba(255, 176, 0, calc(0.55 * var(--glow))),
+        0 0 calc(11px * var(--glow)) rgba(255, 130, 0, calc(0.22 * var(--glow)));
+      box-shadow: inset 0 0 0 2px #060402, inset 0 0 40px rgba(0, 0, 0, 0.9);
+    }
+    .screen::before { /* scanlines */
+      content: '';
+      position: absolute; inset: 0; z-index: 5;
+      pointer-events: none;
+      background: repeating-linear-gradient(180deg, rgba(0, 0, 0, 0.32) 0 1px, transparent 1px 3px);
+    }
+    .screen::after { /* vignette + glass sheen */
+      content: '';
+      position: absolute; inset: 0; z-index: 6;
+      pointer-events: none;
+      border-radius: inherit;
+      background:
+        linear-gradient(155deg, rgba(255, 240, 210, 0.07) 0%, transparent 28%),
+        radial-gradient(ellipse 75% 70% at 50% 50%, transparent 62%, rgba(0, 0, 0, 0.62) 100%);
+      box-shadow: inset 0 0 90px rgba(0, 0, 0, 0.55);
+    }
+    .flicker {
+      position: absolute; inset: 0; z-index: 4; pointer-events: none;
+      background: rgba(255, 176, 0, 0.025);
+      animation: flicker 4.2s steps(1) infinite;
+    }
+    .band {
+      position: absolute; left: 0; right: 0; top: 0; height: 100%; z-index: 4; pointer-events: none;
+      background: linear-gradient(180deg, transparent 44%, rgba(255, 196, 110, 0.045) 50%, transparent 56%);
+      animation: band 8s linear infinite;
+      will-change: transform;
+    }
+    @keyframes flicker {
+      0%, 100% { opacity: 1; }
+      7% { opacity: 0.55; }
+      8% { opacity: 1; }
+      41% { opacity: 0.8; }
+      42% { opacity: 1; }
+      73% { opacity: 0.6; }
+      74% { opacity: 1; }
+    }
+    @keyframes band { from { transform: translateY(-60%); } to { transform: translateY(60%); } }
+
+    /* The tube is the only thing that ever scrolls, and only when a section is taller than the glass. */
+    .tube {
+      position: absolute; z-index: 1;
+      inset: clamp(4px, 1.6cqh, 14px) clamp(3px, 0.8cqw, 10px) clamp(4px, 1.6cqh, 14px) 0;
+      overflow-x: hidden;
+      overflow-y: auto;
+      overscroll-behavior: contain;
+      padding: clamp(6px, 2.2cqh, 24px) clamp(10px, 2.4cqw, 32px) clamp(6px, 1.4cqh, 16px) clamp(14px, 3.2cqw, 42px);
+      font-size: clamp(14px, min(1.85cqw, 3.4cqh), 26px);
+      scrollbar-width: thin;
+      scrollbar-color: var(--amber-mid) rgba(255, 176, 0, 0.06);
+      animation: poweron 0.55s cubic-bezier(.2,.7,.2,1) both;
+      transform-origin: 50% 50%;
+    }
+    .tube::-webkit-scrollbar { width: 9px; }
+    .tube::-webkit-scrollbar-track { background: rgba(255, 176, 0, 0.06); }
+    .tube::-webkit-scrollbar-thumb { background: var(--amber-mid); border: 2px solid var(--bg); box-shadow: 0 0 6px rgba(255, 176, 0, 0.6); }
+    .booting .tube { overflow: hidden; }
+    @keyframes poweron {
+      0% { transform: scale(1, 0.006); filter: brightness(5); opacity: 0.2; }
+      45% { transform: scale(1, 0.006); filter: brightness(5); opacity: 1; }
+      100% { transform: scale(1, 1); filter: brightness(1); }
+    }
+
+    /* ---------- Boot ---------- */
+    #boot { display: none; }
+    .booting #boot {
+      display: block;
+      position: absolute; inset: 0; z-index: 3;
+      padding: inherit;
+      background: var(--bg);
+    }
+    .booting #main { visibility: hidden; }
+    #boot-log { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; font: inherit; }
+    #boot-log .ok { color: var(--ok); text-shadow: 0 0 4px rgba(143, 212, 111, 0.5); }
+    #boot-log .hi { color: var(--amber-hi); }
+    .skip { margin-top: 1.4em; color: var(--amber-dim); animation: blink 1s steps(1) infinite; }
+
+    .cur {
+      display: inline-block; width: 0.6em; height: 1em;
+      margin-left: 0.15ch; vertical-align: -0.12em;
+      background: var(--amber);
+      box-shadow: 0 0 calc(6px * var(--glow)) rgba(255, 176, 0, 0.7);
+      animation: blink 1.06s steps(1) infinite;
+    }
+    @keyframes blink { 50% { opacity: 0; } }
+
+    /* ---------- Main screen content ---------- */
+    .sysline {
+      display: flex; flex-wrap: wrap; gap: 0.2em 1.4ch;
+      justify-content: space-between;
+      color: var(--amber-mid);
+      border-bottom: 2px solid var(--amber-faint);
+      padding-bottom: 0.2em; margin-bottom: 0.5em;
+    }
+    .sysline .ok, .okc { color: var(--ok); text-shadow: 0 0 4px rgba(143, 212, 111, 0.45); }
+    .prompt { margin: 0; color: var(--amber-mid); }
+    .prompt b { color: var(--amber); font-weight: normal; }
+
+    /* whoami: one header line, then the bio in a couple of lines */
+    .who-head {
+      display: flex; flex-wrap: wrap; align-items: baseline;
+      gap: 0.1em 2.4ch;
+    }
+    h1 {
+      margin: 0.05em 0 0;
+      font-weight: normal;
+      font-size: 1.75em;
+      line-height: 1.05;
+      color: var(--amber-hi);
+      letter-spacing: 0.01em;
+    }
+    .bio { margin: 0.1em 0 0; max-width: 112ch; }
+    .bio-meta { display: flex; flex-wrap: wrap; gap: 0.2em 2ch; margin: 0; color: var(--amber-dim); }
+    .bio-meta a { color: var(--amber-mid); text-decoration: none; border-bottom: 1px dashed var(--amber-dim); }
+    .bio-meta a:hover, .bio-meta a:focus-visible { color: var(--amber-hi); outline: none; }
+    #path { display: inline; }
+    .ls { margin-top: 0.5em; }
+
+    .box {
+      position: relative;
+      border: 4px double var(--amber-dim);
+      padding: 0.85em 0.7em 0.55em;
+      margin: 0.85em 0 0;
+      min-width: 0;
+      box-shadow: 0 0 calc(7px * var(--glow)) rgba(255, 176, 0, 0.16), inset 0 0 calc(7px * var(--glow)) rgba(255, 176, 0, 0.1);
+    }
+    .box > .box-title {
+      position: absolute; top: -0.68em; left: 0.8em;
+      margin: 0; padding: 0 0.6ch;
+      font-size: 1em; font-weight: normal;
+      background: var(--bg);
+      color: var(--amber-hi);
+      letter-spacing: 0.06em;
+    }
+    .note { margin: 0 0 0.45em; color: var(--amber-mid); }
+
+    .menu { list-style: none; margin: 0; padding: 0; }
+    .row {
+      display: flex; align-items: flex-end; align-items: last baseline;
+      gap: 0.8ch;
+      padding: 0.06em 0.6ch;
+      text-decoration: none;
+      color: var(--amber);
+      outline: none;
+      cursor: pointer;
+    }
+    .tree { color: var(--amber-dim); flex: none; }
+    .idx { flex: none; color: var(--amber-mid); }
+    .nm { flex: 0 1 auto; min-width: 0; overflow-wrap: anywhere; }
+    .caps { text-transform: uppercase; letter-spacing: 0.04em; }
+    .lead {
+      flex: 1 1 2ch; min-width: 2ch;
+      overflow: hidden; white-space: nowrap;
+      color: var(--amber-faint);
+      text-shadow: none;
+    }
+    .lead::before { content: '..............................................................................................................................'; }
+    .st { flex: none; }
+    .st.okc { color: var(--ok); }
+    .st.busy { color: var(--amber-hi); }
+    .st.dim { color: var(--amber-mid); }
+    .yr { flex: none; color: var(--amber-dim); }
+
+    .row:hover, .row:focus-visible, .row.sel {
+      background: var(--amber);
+      color: var(--ink);
+      text-shadow: none;
+      box-shadow: 0 0 calc(12px * var(--glow)) rgba(255, 176, 0, 0.45);
+    }
+    .row:hover *, .row:focus-visible *, .row.sel * { color: var(--ink) !important; text-shadow: none !important; }
+    .row.sel .lead, .row:hover .lead, .row:focus-visible .lead { opacity: 0.55; }
+    /* while JS drives the bar, only the chosen row lights up */
+    .js .row:hover:not(.sel) { background: transparent; color: var(--amber); box-shadow: none; }
+    .js .row:hover:not(.sel) * { color: inherit !important; }
+    .js .row:hover:not(.sel) .tree, .js .row:hover:not(.sel) .yr { color: var(--amber-dim) !important; }
+    .js .row:hover:not(.sel) .lead { color: var(--amber-faint) !important; opacity: 1; }
+
+    .desc-inline { margin: 0.1em 0 0.5em 4.2ch; color: var(--amber-mid); }
+    .js .desc-inline { display: none; }
+
+    /* listing and readout side by side whenever the glass is wide enough */
+    .proj-grid { display: grid; gap: 0 1.6em; grid-template-columns: minmax(0, 1fr); }
+    @container crt (min-width: 680px) and (orientation: landscape) {
+      .proj-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr); align-items: start; }
+    }
+
+    .ro-box { container: ro / inline-size; }
+    .ro { display: grid; gap: 0.3em; grid-template-columns: minmax(0, 1fr); }
+    .ro[hidden] { display: none; }
+    .ro + .ro { margin-top: 1.2em; padding-top: 1em; border-top: 2px dashed var(--amber-faint); }
+    .js .ro + .ro { margin-top: 0; padding-top: 0; border-top: 0; }
+    .ro svg {
+      width: min(100%, 340px, 50cqh); height: auto; aspect-ratio: 240 / 140;
+      color: var(--amber);
+      filter: drop-shadow(0 0 calc(3px * var(--glow)) rgba(255, 176, 0, 0.55));
+      overflow: visible;
+    }
+    /* wireframe on the left, title and status on the right, blurb underneath */
+    @container ro (min-width: 330px) {
+      .ro { grid-template-columns: minmax(0, 48%) minmax(0, 1fr); column-gap: 1.6ch; align-items: start; }
+      .ro svg { grid-column: 1; grid-row: 1 / 4; width: 100%; max-width: 340px; }
+      .ro h3 { grid-column: 2; grid-row: 1; }
+      .ro .meta { grid-column: 2; grid-row: 2; }
+      .ro .open { grid-column: 2; grid-row: 3; align-self: end; }
+      .ro p { grid-column: 1 / -1; grid-row: 4; margin-top: 0.15em; }
+    }
+    .ro svg .ln { fill: none; stroke: currentColor; stroke-width: 1.4; stroke-linecap: square; stroke-linejoin: miter; }
+    .ro svg .ln.dim { stroke: var(--amber-dim); }
+    .ro svg .ln.ok { stroke: var(--ok); }
+    .ro svg text { fill: currentColor; font-family: 'VT323', monospace; font-size: 12px; }
+    .ro svg text.sm { font-size: 10px; fill: var(--amber-mid); }
+    .ro h3 { margin: 0; font-weight: normal; font-size: 1.45em; color: var(--amber-hi); line-height: 1; }
+    .ro .meta { color: var(--amber-mid); }
+    .ro p { margin: 0; }
+    .open {
+      justify-self: start;
+      margin-top: 0.2em;
+      text-decoration: none;
+      border: 2px solid var(--amber-dim);
+      padding: 0 0.8ch;
+    }
+    .open:hover, .open:focus-visible { background: var(--amber); color: var(--ink); text-shadow: none; outline: none; }
+
+    .js .ro.drawing .ln { stroke-dasharray: 1; stroke-dashoffset: 1; animation: draw 0.7s ease-out forwards; }
+    .js .ro.drawing .ln:nth-of-type(2n) { animation-delay: 0.08s; }
+    .js .ro.drawing .ln:nth-of-type(3n) { animation-delay: 0.16s; }
+    .js .ro.drawing text { animation: txt 0.4s steps(3) 0.35s both; }
+    @keyframes draw { to { stroke-dashoffset: 0; } }
+    @keyframes txt { from { opacity: 0; } to { opacity: 1; } }
+
+    .js .panel:not(.on) { display: none; }
+    .js .panel.on { animation: redraw 0.24s steps(5) both; }
+    @keyframes redraw { from { clip-path: inset(0 0 100% 0); } to { clip-path: inset(-30px); } }
+
+    .statusbar {
+      display: flex; flex-wrap: wrap; justify-content: space-between; gap: 0.3em 2ch;
+      margin-top: 0.7em; padding-top: 0.25em;
+      border-top: 2px solid var(--amber-faint);
+      color: var(--amber-dim);
+    }
+    .statusbar kbd { font: inherit; color: var(--amber-mid); }
+    .statusbar a { color: var(--amber-mid); text-decoration: none; }
+    .statusbar a:hover, .statusbar a:focus-visible { color: var(--amber-hi); outline: none; text-decoration: underline; }
+
+    .ready .rv { animation: rv 0.32s steps(4) both; animation-delay: calc(var(--i, 0) * 75ms); }
+    .settled .tube, .settled .rv { animation: none; }
+    @keyframes rv { from { opacity: 0; clip-path: inset(0 0 100% 0); } to { opacity: 1; clip-path: inset(-30px); } }
+
+    /* narrow glass: drop the year column, stack the research rows */
+    @container crt (max-width: 560px) {
+      .yr { display: none; }
+      .statusbar .hint { display: none; }
+      .desc-inline { margin-left: 0; }
+      .research .row { display: grid; grid-template-columns: auto auto minmax(0, 1fr); column-gap: 0.8ch; align-items: baseline; }
+      .research .lead { display: none; }
+      .research .st { grid-column: 3; }
+    }
+    @container crt (max-width: 380px) {
+      .sysline .hide-xs { display: none; }
+    }
+
+    /* ---------- Lower deck ---------- */
+    .deck {
+      flex: none;
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr) auto;
+      align-items: center;
+      gap: calc(8 * var(--u)) calc(22 * var(--u));
+      margin: calc(14 * var(--u)) calc(6 * var(--u)) 0;
+    }
+    .plate {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: max(8px, calc(10 * var(--u))); letter-spacing: 0.16em; line-height: 1.5;
+      color: #3d3a33;
+      padding: calc(6 * var(--u)) calc(12 * var(--u));
+      border-radius: 3px;
+      background: linear-gradient(180deg, #e9e6df, #b9b4a8 55%, #d4d0c6);
+      box-shadow: inset 0 0 0 1px rgba(0,0,0,0.25), 0 1px 0 rgba(255,255,255,0.7), 0 2px 3px rgba(0,0,0,0.25);
+      text-shadow: 0 1px 0 rgba(255,255,255,0.6);
+      position: relative;
+      white-space: nowrap;
+    }
+    .plate b { display: block; font-weight: 600; font-size: max(9px, calc(12 * var(--u))); letter-spacing: 0.2em; color: #2b2924; }
+    .plate::before, .plate::after {
+      content: ''; position: absolute; top: 50%; width: 5px; height: 5px; margin-top: -2.5px; border-radius: 50%;
+      background: radial-gradient(circle at 35% 35%, #fff, #7d786c);
+    }
+    .plate::before { left: 3px; }
+    .plate::after { right: 3px; }
+
+    .fkeys { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: calc(12 * var(--u)); }
+    .fkey {
+      position: relative;
+      display: flex; flex-direction: column; align-items: flex-start; justify-content: space-between;
+      min-height: max(36px, calc(54 * var(--u)));
+      padding: calc(6 * var(--u)) calc(10 * var(--u)) calc(7 * var(--u));
+      border-radius: calc(7 * var(--u));
+      text-decoration: none;
+      font-family: 'IBM Plex Mono', monospace;
+      color: #3b372d;
+      background: linear-gradient(180deg, #f3ecda 0%, #ddd3ba 70%, #cfc4a8 100%);
+      box-shadow:
+        inset 0 1px 0 rgba(255,255,255,0.9),
+        inset 0 -2px 0 rgba(0,0,0,0.08),
+        0 4px 0 #8e8569,
+        0 7px 10px rgba(0,0,0,0.35);
+      transition: transform 0.06s, box-shadow 0.06s;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+    }
+    .fkey .k { font-size: max(12px, calc(15 * var(--u))); font-weight: 600; letter-spacing: 0.04em; line-height: 1.2; }
+    .fkey .l { font-size: max(8px, calc(10 * var(--u))); letter-spacing: 0.18em; text-transform: uppercase; color: #6a634f; line-height: 1.3; }
+    .fkey .lamp {
+      position: absolute; top: calc(8 * var(--u)); right: calc(9 * var(--u));
+      width: 7px; height: 7px; border-radius: 50%;
+      background: #6b5a37;
+      box-shadow: inset 0 1px 1px rgba(0,0,0,0.5);
+    }
+    .fkey.on .lamp, html:not(.js) .fkey:target .lamp {
+      background: var(--amber);
+      box-shadow: 0 0 6px 2px rgba(255, 176, 0, 0.75), inset 0 0 2px #fff6dc;
+    }
+    .fkey:hover { background: linear-gradient(180deg, #f7f1e1 0%, #e2d9c1 70%, #d3c9ae 100%); }
+    .fkey:active, .fkey.down {
+      transform: translateY(3px);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.7), 0 1px 0 #8e8569, 0 2px 4px rgba(0,0,0,0.35);
+    }
+    .fkey:focus-visible { outline: 3px solid var(--amber-mid); outline-offset: 3px; }
+
+    .leds { display: flex; gap: 14px; margin-left: auto; }
+    .led {
+      display: grid; justify-items: center; gap: 4px;
+      font-family: 'IBM Plex Mono', monospace; font-size: 9px; letter-spacing: 0.16em; color: #5d5644;
+    }
+    .led i {
+      display: block; width: 10px; height: 10px; border-radius: 50%;
+      background: #4b3e25;
+      box-shadow: inset 0 1px 2px rgba(0,0,0,0.6), 0 1px 0 rgba(255,255,255,0.6);
+    }
+    .led.pwr i { background: var(--ok); box-shadow: 0 0 7px 2px rgba(143, 212, 111, 0.6), inset 0 0 2px #e8ffd9; }
+    .led.dsk i.lit { background: var(--amber); box-shadow: 0 0 7px 2px rgba(255, 176, 0, 0.75), inset 0 0 2px #fff6dc; }
+    .led.net i { animation: netblink 2.6s steps(1) infinite; }
+    @keyframes netblink {
+      0%, 100% { background: #4b3e25; box-shadow: inset 0 1px 2px rgba(0,0,0,0.6), 0 1px 0 rgba(255,255,255,0.6); }
+      10%, 14% { background: var(--ok-dim); box-shadow: 0 0 5px 1px rgba(143, 212, 111, 0.45); }
+    }
+    .dials { display: flex; gap: calc(12 * var(--u)); align-items: start; }
+    .dial-wrap { display: grid; justify-items: center; gap: calc(6 * var(--u)); font-family: 'IBM Plex Mono', monospace; font-size: 9px; letter-spacing: 0.16em; color: #5d5644; }
+    .dial {
+      --d: max(30px, calc(44 * var(--u)));
+      width: var(--d); height: var(--d); border-radius: 50%;
+      border: 0; padding: 0; cursor: pointer;
+      background:
+        radial-gradient(circle at 40% 35%, #5a554a 0 30%, transparent 31%),
+        repeating-conic-gradient(#2f2c26 0 6deg, #47433a 6deg 12deg);
+      box-shadow:
+        0 0 0 4px #b9ae93,
+        0 0 0 5px #8e8569,
+        0 4px 8px 4px rgba(0,0,0,0.35);
+      position: relative;
+      margin-top: 5px;
+      transform: rotate(var(--rot, 0deg));
+      transition: transform 0.25s cubic-bezier(.3,1.6,.5,1);
+    }
+    .dial::after {
+      content: ''; position: absolute; left: 50%; top: 12%; width: 3px; height: 26%; margin-left: -1.5px;
+      border-radius: 2px; background: var(--amber); box-shadow: 0 0 4px rgba(255,176,0,0.8);
+    }
+    .dial:focus-visible { outline: 3px solid var(--amber-mid); outline-offset: 7px; }
+    .vents {
+      grid-column: 1 / -1;
+      height: calc(12 * var(--u));
+      margin: calc(2 * var(--u)) calc(30 * var(--u)) 0;
+      border-radius: 4px;
+      background: repeating-linear-gradient(90deg, rgba(40, 36, 28, 0.55) 0 22px, transparent 22px 30px);
+      -webkit-mask: repeating-linear-gradient(180deg, #000 0 3px, transparent 3px 5px);
+              mask: repeating-linear-gradient(180deg, #000 0 3px, transparent 3px 5px);
+      opacity: 0.6;
+    }
+
+    /* ---------- Short desktop windows: shed the decorative bits first ---------- */
+    @media (min-width: 821px) and (max-height: 760px) {
+      .vents { display: none; }
+    }
+    @media (min-width: 821px) and (max-height: 560px) {
+      .plate, .brand span, .dial-wrap > span { display: none; }
+      .deck { grid-template-columns: minmax(0, 1fr) auto; }
+    }
+
+    /* ---------- Tablets and phones: a full-screen handheld, screen on top, keys along the bottom ---------- */
+    @media (max-width: 820px) {
+      body { display: block; }
+      .console {
+        --u: 1px;
+        width: 100%;
+        height: 100vh;
+        height: 100svh;
+        height: 100dvh;
+        border-radius: 0;
+        padding: max(8px, env(safe-area-inset-top)) max(8px, env(safe-area-inset-right)) 0 max(8px, env(safe-area-inset-left));
+      }
+      .topstrip { margin: 0 4px 8px; gap: 12px; }
+      .brand span, .screws, .stripes { display: none; }
+      .well { padding: 6px; border-radius: 16px; }
+      .screen { border-radius: 12px / 16px; }
+      .tube {
+        inset: 6px 4px 6px 0;
+        padding: 12px 12px 10px 16px;
+        font-size: clamp(17px, 4.4cqw, 21px);
+      }
+      .deck {
+        grid-template-columns: minmax(0, 1fr) auto; gap: 12px;
+        margin: 8px calc(-1 * max(8px, env(safe-area-inset-right))) 0 calc(-1 * max(8px, env(safe-area-inset-left)));
+        padding: 10px 12px max(12px, env(safe-area-inset-bottom));
+        background: linear-gradient(180deg, var(--plastic) 0%, var(--plastic-lo) 100%);
+        box-shadow: inset 0 1px 0 rgba(255,255,255,0.6), 0 -8px 14px -6px rgba(0,0,0,0.45);
+      }
+      .plate, .vents, .dial-wrap > span { display: none; }
+      .leds { gap: 10px; }
+      .fkeys { gap: 8px; }
+      .fkey { min-height: 48px; padding: 6px 8px 7px; border-radius: 7px; }
+      .fkey .k { font-size: 13px; }
+      .fkey .l { font-size: 8px; letter-spacing: 0.1em; }
+      .fkey .lamp { top: 7px; right: 7px; width: 6px; height: 6px; }
+      .dials { gap: 12px; align-items: center; }
+      .dial { --d: 38px; margin-top: 0; }
+    }
+    @media (max-width: 380px) {
+      .draft-tag { font-size: 10px; padding: 3px 7px; }
+      .leds { gap: 8px; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { animation: none !important; transition: none !important; }
+      .flicker, .band { display: none; }
+      .js .ro.drawing .ln { stroke-dashoffset: 0; }
+    }
+  </style>
+</head>
+<body>
+  <div class="console">
+    <div class="topstrip">
+      <div class="brand" aria-hidden="true"><b>SSX-1</b><span>Amber phosphor workstation</span></div>
+      <a class="draft-tag" href="/drafts">Draft: Mainframe</a>
+      <div class="stripes" aria-hidden="true"><i></i><i></i><i></i></div>
+      <div class="leds" aria-hidden="true">
+        <span class="led pwr"><i></i>PWR</span>
+        <span class="led dsk"><i id="dsk"></i>DSK</span>
+        <span class="led net"><i></i>NET</span>
+      </div>
+      <div class="screws" aria-hidden="true"><span class="screw"></span><span class="screw"></span></div>
+    </div>
+
+    <div class="well">
+      <div class="screen" id="screen">
+        <div class="flicker" aria-hidden="true"></div>
+        <div class="band" aria-hidden="true"></div>
+        <div class="tube">
+          <div id="boot" aria-hidden="true">
+            <pre id="boot-log"></pre>
+            <p class="skip">PRESS ANY KEY TO SKIP</p>
+          </div>
+
+          <main id="main">
+            <div class="sysline rv" style="--i:0">
+              <span>SSX-1 OS 4.02</span>
+              <span class="hide-xs">USER: SHASHVAT</span>
+              <span>MEM <span class="ok">OK</span></span>
+              <span id="clock" aria-hidden="true">00:00:00</span>
+            </div>
+
+            <section class="who rv" style="--i:1" aria-labelledby="hello">
+              <p class="prompt">SSX:/HOME&gt; <b>whoami</b></p>
+              <div class="who-head">
+                <h1 id="hello">Hey, I'm Shashvat.</h1>
+                <p class="bio-meta">
+                  <span>OWNER: SHASHVAT SINGH</span>
+                  <a href="https://github.com/sh4shv4t">GITHUB</a>
+                  <a href="https://medium.com/@shashvat.k.singh.16">MEDIUM</a>
+                </p>
+              </div>
+              <p class="bio">I build stuff around LLM agents: how they run, how you figure out where they went wrong and how they get better over time. On the research side I poke at the insides of reasoning models, and when I can I contribute to open source AI infra.</p>
+            </section>
+
+            <p class="prompt ls rv" style="--i:2"><span id="path">SSX:/HOME/PROJECTS&gt; <b>ls</b></span><span class="cur" aria-hidden="true"></span></p>
+
+            <div class="rv" style="--i:3">
+              <!-- F1 -->
+              <section class="panel on" id="projects" aria-labelledby="t-projects">
+                <div class="proj-grid">
+                  <div class="box">
+                    <h2 class="box-title" id="t-projects">╡ F1 /PROJECTS ╞</h2>
+                    <ul class="menu">
+                      {projects.map((p, i) => (
+                        <li>
+                          <a class="row" href={p.href} data-ro={p.key}>
+                            <span class="tree" aria-hidden="true">{tree(i, projects.length)}</span>
+                            <span class="idx">[{pad(i)}]</span>
+                            <span class="nm caps">{p.name}</span>
+                            <span class="lead" aria-hidden="true"></span>
+                            <span class={`st ${p.status === 'SHIPPED' ? 'okc' : 'busy'}`}>{p.status}</span>
+                            <span class="yr">{p.year}</span>
+                          </a>
+                          <p class="desc-inline">{p.desc}</p>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+
+                  <div class="box ro-box" aria-live="polite">
+                    <h2 class="box-title">╡ READOUT ╞</h2>
+
+                    <article class="ro" data-for="errand">
+                      <svg viewBox="0 0 240 140" role="img" aria-label="Wireframe: a big model handing tasks to three small specialist models">
+                        <rect class="ln" pathLength="1" x="8" y="42" width="72" height="56" />
+                        <rect class="ln dim" pathLength="1" x="13" y="47" width="62" height="46" />
+                        <text x="44" y="70" text-anchor="middle">BIG</text>
+                        <text x="44" y="82" text-anchor="middle" class="sm">MODEL</text>
+                        <path class="ln" pathLength="1" d="M80 62 C120 62 128 24 166 24" />
+                        <path class="ln" pathLength="1" d="M80 70 H166" />
+                        <path class="ln" pathLength="1" d="M80 78 C120 78 128 116 166 116" />
+                        <path class="ln" pathLength="1" d="M160 19 L166 24 L160 29 M160 65 L166 70 L160 75 M160 111 L166 116 L160 121" />
+                        <rect class="ln ok" pathLength="1" x="166" y="12" width="66" height="24" />
+                        <rect class="ln ok" pathLength="1" x="166" y="58" width="66" height="24" />
+                        <rect class="ln ok" pathLength="1" x="166" y="104" width="66" height="24" />
+                        <text x="199" y="28" text-anchor="middle">SPEC A</text>
+                        <text x="199" y="74" text-anchor="middle">SPEC B</text>
+                        <text x="199" y="120" text-anchor="middle">SPEC C</text>
+                        <text x="122" y="63" text-anchor="middle" class="sm">$ LOW</text>
+                      </svg>
+                      <h3>ERRAND</h3>
+                      <div class="meta">STATUS: <span class="busy">BUILDING</span> │ YEAR: 2026</div>
+                      <p>Send your model on fewer errands. A marketplace where big models hand off tasks to cheaper specialist models.</p>
+                      <a class="open" href="/projects/errand">[ENTER] OPEN ▸</a>
+                    </article>
+
+                    <article class="ro" data-for="tracebank">
+                      <svg viewBox="0 0 240 140" role="img" aria-label="Wireframe: an agent trace passing through a local scrubber into a bank">
+                        <rect class="ln" pathLength="1" x="6" y="36" width="70" height="52" />
+                        <path class="ln dim" pathLength="1" d="M14 50 H44 M14 60 H62 M14 70 H34 M14 80 H52" />
+                        <text x="41" y="104" text-anchor="middle" class="sm">AGENT</text>
+                        <path class="ln" pathLength="1" d="M76 62 H100 M95 57 L100 62 L95 67" />
+                        <path class="ln ok" pathLength="1" d="M120 36 L140 44 V62 C140 75 131 83 120 88 C109 83 100 75 100 62 V44 Z" />
+                        <path class="ln ok" pathLength="1" d="M111 62 L118 69 L130 54" />
+                        <text x="120" y="104" text-anchor="middle">SCRUB</text>
+                        <text x="120" y="116" text-anchor="middle" class="sm">YOUR MACHINE</text>
+                        <path class="ln" pathLength="1" d="M140 62 H164 M159 57 L164 62 L159 67" />
+                        <ellipse class="ln" pathLength="1" cx="198" cy="40" rx="30" ry="8" />
+                        <path class="ln" pathLength="1" d="M168 40 V86 A30 8 0 0 0 228 86 V40" />
+                        <path class="ln dim" pathLength="1" d="M168 63 A30 8 0 0 0 228 63" />
+                        <text x="198" y="112" text-anchor="middle" class="sm">BANK</text>
+                      </svg>
+                      <h3>TRACEBANK</h3>
+                      <div class="meta">STATUS: <span class="busy">BUILDING</span> │ YEAR: 2026</div>
+                      <p>A plugin that collects consented, long-horizon coding agent traces, scrubbed on your own machine.</p>
+                      <a class="open" href="/projects/tracebank">[ENTER] OPEN ▸</a>
+                    </article>
+
+                    <article class="ro" data-for="project-z">
+                      <svg viewBox="0 0 240 140" role="img" aria-label="Wireframe: a loop of run, see and learn">
+                        <circle class="ln" pathLength="1" cx="58" cy="100" r="24" />
+                        <circle class="ln" pathLength="1" cx="120" cy="30" r="24" />
+                        <circle class="ln" pathLength="1" cx="182" cy="100" r="24" />
+                        <text x="58" y="104" text-anchor="middle">RUN</text>
+                        <text x="120" y="34" text-anchor="middle">SEE</text>
+                        <text x="182" y="104" text-anchor="middle">LEARN</text>
+                        <path class="ln dim" pathLength="1" d="M68 78 Q78 48 98 40" />
+                        <path class="ln dim" pathLength="1" d="M142 40 Q162 48 172 78" />
+                        <path class="ln dim" pathLength="1" d="M160 112 Q120 134 80 112" />
+                        <path class="ln" pathLength="1" d="M91 36 L98 40 L92 46 M166 73 L172 78 L174 70 M87 107 L80 112 L88 116" />
+                        <text x="120" y="88" text-anchor="middle" class="sm">AGENT</text>
+                        <circle class="ln ok" pathLength="1" cx="120" cy="76" r="3" />
+                      </svg>
+                      <h3>PROJECT Z</h3>
+                      <div class="meta">STATUS: <span class="busy">BUILDING</span> │ YEAR: 2026</div>
+                      <p>A self-hostable platform for agents that get better over time. Run, see, learn.</p>
+                      <a class="open" href="/projects/project-z">[ENTER] OPEN ▸</a>
+                    </article>
+
+                    <article class="ro" data-for="reminders">
+                      <svg viewBox="0 0 240 140" role="img" aria-label="Wireframe: a calendar with a date circled and a task ticked">
+                        <rect class="ln" pathLength="1" x="56" y="20" width="128" height="104" />
+                        <path class="ln" pathLength="1" d="M56 38 H184" />
+                        <path class="ln" pathLength="1" d="M82 12 V26 M158 12 V26" />
+                        <path class="ln dim" pathLength="1" d="M74.3 38 V124 M92.6 38 V124 M110.9 38 V124 M129.1 38 V124 M147.4 38 V124 M165.7 38 V124 M56 59.5 H184 M56 81 H184 M56 102.5 H184" />
+                        <circle class="ln" pathLength="1" cx="120" cy="70" r="9" />
+                        <path class="ln ok" pathLength="1" d="M151 92 L155 96 L162 87" />
+                        <text x="120" y="33" text-anchor="middle" class="sm">DON'T SLIP</text>
+                        <path class="ln" pathLength="1" d="M206 54 C206 44 222 44 222 54 V66 L226 70 H202 L206 66 Z M211 73 A3 3 0 0 0 217 73" />
+                      </svg>
+                      <h3>REMINDERS</h3>
+                      <div class="meta">STATUS: <span class="okc">SHIPPED</span> │ YEAR: 2026</div>
+                      <p>A small Windows app so birthdays, events and tasks don't slip through.</p>
+                      <a class="open" href="/projects/reminders">[ENTER] OPEN ▸</a>
+                    </article>
+                  </div>
+                </div>
+              </section>
+
+              <!-- F2 -->
+              <section class="panel research" id="research" aria-labelledby="t-research">
+                <div class="box">
+                  <h2 class="box-title" id="t-research">╡ F2 /RESEARCH ╞</h2>
+                  <p class="note">Stuff I'm poking at right now. The longer notes live on the research page.</p>
+                  <ul class="menu">
+                    {research.map((r, i) => (
+                      <li>
+                        <a class="row" href="/research">
+                          <span class="tree" aria-hidden="true">{tree(i, research.length)}</span>
+                          <span class="idx">[R{i + 1}]</span>
+                          <span class="nm">{r.title}</span>
+                          <span class="lead" aria-hidden="true"></span>
+                          <span class={`st ${r.status === 'EARLY' ? 'dim' : 'busy'}`}>{r.status}</span>
+                        </a>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </section>
+
+              <!-- F3 -->
+              <section class="panel" id="writing" aria-labelledby="t-writing">
+                <div class="box">
+                  <h2 class="box-title" id="t-writing">╡ F3 /WRITING ╞</h2>
+                  <p class="note">I write up what I'm building and what I figure out along the way, mostly on Medium.</p>
+                  <ul class="menu">
+                    <li>
+                      <a class="row" href="https://medium.com/@shashvat.k.singh.16">
+                        <span class="tree" aria-hidden="true">├─</span>
+                        <span class="idx">[W1]</span>
+                        <span class="nm caps">Medium</span>
+                        <span class="lead" aria-hidden="true"></span>
+                        <span class="st okc">ONLINE</span>
+                      </a>
+                    </li>
+                    <li>
+                      <a class="row" href="/writing">
+                        <span class="tree" aria-hidden="true">└─</span>
+                        <span class="idx">[W2]</span>
+                        <span class="nm caps">All posts</span>
+                        <span class="lead" aria-hidden="true"></span>
+                        <span class="st dim">/WRITING</span>
+                      </a>
+                    </li>
+                  </ul>
+                </div>
+              </section>
+
+              <!-- F4 -->
+              <section class="panel" id="oss" aria-labelledby="t-oss">
+                <div class="box">
+                  <h2 class="box-title" id="t-oss">╡ F4 /OSS ╞</h2>
+                  <p class="note">Merged PRs in open source AI infra so far, plus a Kaggle comp I'm in right now.</p>
+                  <ul class="menu">
+                    {oss.map((o, i) => (
+                      <li>
+                        <a class="row" href="/oss">
+                          <span class="tree" aria-hidden="true">├─</span>
+                          <span class="idx">[O{i + 1}]</span>
+                          <span class="nm">{o.name}</span>
+                          <span class="lead" aria-hidden="true"></span>
+                          <span class={`st ${o.ok ? 'okc' : 'busy'}`}>{o.status}</span>
+                        </a>
+                      </li>
+                    ))}
+                    <li>
+                      <a class="row" href="https://github.com/sh4shv4t">
+                        <span class="tree" aria-hidden="true">└─</span>
+                        <span class="idx">[O5]</span>
+                        <span class="nm">github.com/sh4shv4t</span>
+                        <span class="lead" aria-hidden="true"></span>
+                        <span class="st dim">PROFILE</span>
+                      </a>
+                    </li>
+                  </ul>
+                </div>
+              </section>
+            </div>
+
+            <footer class="statusbar rv" style="--i:4">
+              <span class="hint"><kbd>↑↓</kbd>/<kbd>J K</kbd> MOVE │ <kbd>ENTER</kbd> OPEN │ <kbd>F1 to F4</kbd> SECTION</span>
+              <span><a href="https://github.com/sh4shv4t">GITHUB</a> │ <a href="https://medium.com/@shashvat.k.singh.16">MEDIUM</a></span>
+            </footer>
+          </main>
+        </div>
+      </div>
+    </div>
+
+    <div class="deck">
+      <div class="plate" aria-hidden="true">
+        <b>SSX-1 WORKSTATION</b>
+        OWNER: S. SINGH<br />
+        230V 50HZ │ SER. 86-0407
+      </div>
+
+      <nav class="fkeys" aria-label="Sections">
+        <a class="fkey on" href="#projects" data-i="0" aria-current="true"><span class="k">F1</span><span class="l">Projects</span><span class="lamp"></span></a>
+        <a class="fkey" href="#research" data-i="1"><span class="k">F2</span><span class="l">Research</span><span class="lamp"></span></a>
+        <a class="fkey" href="#writing" data-i="2"><span class="k">F3</span><span class="l">Writing</span><span class="lamp"></span></a>
+        <a class="fkey" href="#oss" data-i="3"><span class="k">F4</span><span class="l">OSS</span><span class="lamp"></span></a>
+      </nav>
+
+      <div class="dials">
+        <div class="dial-wrap">
+          <button class="dial" id="snd" type="button" aria-pressed="false" aria-label="Sound off" style="--rot:-45deg"></button>
+          <span aria-hidden="true">SOUND</span>
+        </div>
+        <div class="dial-wrap">
+          <button class="dial" id="dial" type="button" aria-label="Phosphor brightness: normal"></button>
+          <span aria-hidden="true">BRIGHT</span>
+        </div>
+      </div>
+
+      <div class="vents" aria-hidden="true"></div>
+    </div>
+  </div>
+
+  <script is:inline>
+    (function () {
+      var html = document.documentElement;
+      var $ = function (s, r) { return (r || document).querySelector(s); };
+      var $$ = function (s, r) { return Array.prototype.slice.call((r || document).querySelectorAll(s)); };
+
+      /* ---------- disk LED ---------- */
+      var dsk = $('#dsk'), dskT;
+      function disk() {
+        if (!dsk) return;
+        dsk.classList.add('lit');
+        clearTimeout(dskT);
+        dskT = setTimeout(function () { dsk.classList.remove('lit'); }, 110);
+      }
+
+      /* ---------- clock ---------- */
+      var clock = $('#clock');
+      function tick() {
+        var d = new Date(), p = function (n) { return String(n).padStart(2, '0'); };
+        clock.textContent = p(d.getHours()) + ':' + p(d.getMinutes()) + ':' + p(d.getSeconds());
+      }
+      tick(); setInterval(tick, 1000);
+
+      /* ---------- brightness dial ---------- */
+      var levels = [{ g: 0.55, r: -45, n: 'low' }, { g: 1, r: 0, n: 'normal' }, { g: 1.6, r: 50, n: 'high' }], lv = 1;
+      var dial = $('#dial'), screen = $('#screen');
+      /* ---------- sound (Kenney CC0 UI sounds), off until switched on ---------- */
+      var soundOn = false;
+      try { soundOn = localStorage.getItem('mf-sound') === '1'; } catch (e) {}
+      function sfx(name, vol) {
+        if (!soundOn) return;
+        var a = new Audio('/assets/sfx/' + name + '.mp3');
+        a.volume = vol || 0.3;
+        a.play().catch(function () {});
+      }
+      var sndBtn = $('#snd');
+      function paintSnd() {
+        sndBtn.style.setProperty('--rot', soundOn ? '45deg' : '-45deg');
+        sndBtn.setAttribute('aria-pressed', String(soundOn));
+        sndBtn.setAttribute('aria-label', soundOn ? 'Sound on' : 'Sound off');
+      }
+      paintSnd();
+      sndBtn.addEventListener('click', function () {
+        soundOn = !soundOn;
+        try { localStorage.setItem('mf-sound', soundOn ? '1' : '0'); } catch (e) {}
+        paintSnd();
+        sfx('toggle', 0.35);
+      });
+
+      dial.addEventListener('click', function () {
+        sfx('toggle', 0.3);
+        lv = (lv + 1) % levels.length;
+        screen.style.setProperty('--glow', levels[lv].g);
+        dial.style.setProperty('--rot', levels[lv].r + 'deg');
+        dial.setAttribute('aria-label', 'Phosphor brightness: ' + levels[lv].n);
+        disk();
+      });
+
+      /* ---------- panels + selection ---------- */
+      var panels = $$('.panel');
+      var keys = $$('.fkey');
+      var path = $('#path');
+      var readouts = $$('.ro');
+      var cur = 0;
+      var selIdx = panels.map(function () { return 0; });
+      var names = ['PROJECTS', 'RESEARCH', 'WRITING', 'OSS'];
+      var cmds = ['ls', 'ls', 'cat index', 'git log'];
+
+      function rows(i) { return $$('.row', panels[i == null ? cur : i]); }
+
+      function showReadout(key) {
+        readouts.forEach(function (ro) {
+          var on = ro.getAttribute('data-for') === key;
+          ro.hidden = !on;
+          if (on) { ro.classList.remove('drawing'); void ro.offsetWidth; ro.classList.add('drawing'); }
+        });
+      }
+
+      function select(n, focus) {
+        var r = rows();
+        if (!r.length) return;
+        n = (n + r.length) % r.length;
+        var changed = n !== selIdx[cur] || !r[n].classList.contains('sel');
+        selIdx[cur] = n;
+        r.forEach(function (el, j) { el.classList.toggle('sel', j === n); });
+        if (focus) r[n].focus();
+        var key = r[n].getAttribute('data-ro');
+        if (key && changed) showReadout(key);
+        if (changed) { disk(); sfx('nav', 0.22); }
+      }
+
+      function show(i, updateHash) {
+        cur = i;
+        panels.forEach(function (p, j) { p.classList.toggle('on', j === i); });
+        keys.forEach(function (k, j) {
+          k.classList.toggle('on', j === i);
+          if (j === i) k.setAttribute('aria-current', 'true'); else k.removeAttribute('aria-current');
+        });
+        path.innerHTML = 'SSX:/HOME/' + names[i] + '&gt; <b>' + cmds[i] + '</b>';
+        rows().forEach(function (el) { el.classList.remove('sel'); });
+        select(selIdx[i]);
+        if (updateHash && history.replaceState) history.replaceState(null, '', '#' + panels[i].id);
+        disk();
+      }
+
+      // The page never scrolls; the tube does. After a section switch make sure the
+      // new listing is in view inside the glass (matters on short screens and phones).
+      var tube = $('.tube');
+      function reveal() {
+        var tr = tube.getBoundingClientRect(), pr = path.getBoundingClientRect();
+        if (pr.top < tr.top || pr.top > tr.top + tr.height * 0.45) {
+          var reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+          tube.scrollTo({ top: tube.scrollTop + pr.top - tr.top - 10, behavior: reduce ? 'auto' : 'smooth' });
+        }
+      }
+
+      function press(i) {
+        var k = keys[i];
+        if (k) { k.classList.add('down'); setTimeout(function () { k.classList.remove('down'); }, 130); }
+        sfx('key', 0.35);
+        show(i, true);
+        reveal();
+      }
+
+      keys.forEach(function (k, i) {
+        k.addEventListener('click', function (e) {
+          e.preventDefault();
+          sfx('key', 0.35);
+          show(i, true);
+          reveal();
+        });
+      });
+      addEventListener('hashchange', function () {
+        var id = location.hash.slice(1);
+        panels.forEach(function (p, i) { if (p.id === id && i !== cur) show(i, false); });
+      });
+
+      panels.forEach(function (p, pi) {
+        rows(pi).forEach(function (el, j) {
+          el.addEventListener('mouseenter', function () { if (pi === cur) select(j); });
+          el.addEventListener('focus', function () { if (pi === cur && selIdx[cur] !== j) select(j); });
+        });
+      });
+
+      var start = 0;
+      var h = (location.hash || '').slice(1);
+      panels.forEach(function (p, i) { if (p.id === h) start = i; });
+      show(start, false);
+
+      /* ---------- boot sequence ---------- */
+      // Every line is scheduled against performance.now() (ms since navigation start),
+      // and each frame just paints "where the timeline is now". A throttled or late frame
+      // only skips ahead, so the boot is always over by BOOT_END, whatever rAF does.
+      var booting = html.classList.contains('booting');
+      var over = false, raf = 0, endT = 0, iv = 0;
+      var BOOT_END = 2300;
+
+      function onVis() { if (document.hidden) endBoot(); }
+      function endBoot() {
+        if (over) return;
+        over = true;
+        cancelAnimationFrame(raf); clearTimeout(endT); clearInterval(iv);
+        html.classList.remove('booting');
+        html.classList.add('ready');
+        booting = false;
+        removeEventListener('pointerdown', endBoot, true);
+        document.removeEventListener('visibilitychange', onVis);
+        // Once the reveal has played, drop the entrance animations so the screen is a
+        // plain static paint (a paused or background tab can never get stuck mid power-on).
+        if (document.hidden) settle(); else setTimeout(settle, 1000);
+      }
+      function settle() { html.classList.add('settled'); }
+      if (!booting) settle();
+
+      if (booting) {
+        var log = $('#boot-log');
+        var cursor = document.createElement('span'); cursor.className = 'cur';
+        var memory = function (k) { return 'MEMORY CHECK ' + String(Math.round(65536 * k)).padStart(5, ' ') + 'K'; };
+        var bar = function (k) {
+          var N = 20, f = Math.round(N * k);
+          return '[' + '█'.repeat(f) + '░'.repeat(N - f) + '] ' + String(Math.round(k * 100)).padStart(3, ' ') + '%';
+        };
+        var steps = [
+          { t: 180, d: 120, cls: 'hi', text: 'SSX-1 ROM MONITOR V4.02' },
+          { t: 320, d: 160, text: '(C) 1986 SINGH SYSTEMS. NO RIGHTS RESERVED.' },
+          { t: 520, d: 380, fn: memory, ok: true, noisy: true },
+          { t: 940, d: 110, text: 'PHOSPHOR WARMUP ........', ok: true },
+          { t: 1080, d: 110, text: 'MOUNTING /HOME/SHASHVAT ..', ok: true },
+          { t: 1220, d: 140, cls: 'hi', text: 'LOADING PROFILE: SHASHVAT SINGH' },
+          { t: 1380, d: 460, fn: bar, noisy: true },
+          { t: 1880, d: 60, cls: 'ok', text: 'READY.', cursor: true }
+        ];
+        var render = function () {
+          if (over) return;
+          var now = performance.now();
+          for (var i = 0; i < steps.length; i++) {
+            var s = steps[i];
+            if (now < s.t) break;
+            if (!s.el) { s.el = document.createElement('div'); if (s.cls) s.el.className = s.cls; log.appendChild(s.el); }
+            if (s.done) continue;
+            var k = Math.min(1, (now - s.t) / s.d);
+            s.el.textContent = s.fn ? s.fn(k) : s.text.slice(0, Math.ceil(s.text.length * k));
+            if (s.noisy && Math.random() < 0.3) disk();
+            if (k === 1) {
+              s.done = true;
+              if (s.ok) { var o = document.createElement('span'); o.className = 'ok'; o.textContent = ' OK'; s.el.appendChild(o); disk(); }
+              if (s.cursor) s.el.appendChild(cursor);
+            }
+          }
+          if (now >= BOOT_END) endBoot();
+        };
+        var frame = function () { render(); if (!over) raf = requestAnimationFrame(frame); };
+
+        if (document.hidden || performance.now() >= BOOT_END) {
+          endBoot();
+        } else {
+          addEventListener('pointerdown', endBoot, true);
+          document.addEventListener('visibilitychange', onVis);
+          endT = setTimeout(endBoot, Math.max(0, BOOT_END - performance.now()));
+          iv = setInterval(render, 100); // keeps painting if rAF gets throttled
+          frame();
+        }
+      }
+
+      /* ---------- keyboard ---------- */
+      addEventListener('keydown', function (e) {
+        if (booting) { endBoot(); if (e.key !== 'Tab') e.preventDefault(); return; }
+        if (e.ctrlKey || e.metaKey || e.altKey) return;
+        var t = e.target, k = e.key;
+        if (t && t.matches && t.matches('input, textarea, select')) return;
+        if (k === 'ArrowDown' || k === 'j') { e.preventDefault(); select(selIdx[cur] + 1, true); }
+        else if (k === 'ArrowUp' || k === 'k') { e.preventDefault(); select(selIdx[cur] - 1, true); }
+        else if (/^F[1-4]$/.test(k)) { e.preventDefault(); press(+k.charAt(1) - 1); }
+        else if (/^[1-4]$/.test(k)) { press(+k - 1); }
+        else if (k === 'ArrowRight' || k === 'l') { e.preventDefault(); press((cur + 1) % panels.length); }
+        else if (k === 'ArrowLeft' || k === 'h') { e.preventDefault(); press((cur + panels.length - 1) % panels.length); }
+        else if (k === 'Enter') {
+          if (!(t && t.closest && t.closest('a, button'))) {
+            e.preventDefault();
+            var r = rows()[selIdx[cur]];
+            if (r) r.click();
+          }
+        }
+      });
+    })();
+  </script>
+</body>
+</html>
