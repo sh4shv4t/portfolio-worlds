@@ -1,4 +1,5 @@
 ---
+import { url as baseUrl } from '../../site';
 // Draft: Mainframe. A retro-futurist amber CRT workstation.
 // Standalone page on purpose (no Base layout) so it can be judged on its own.
 const projects = [
@@ -7,7 +8,7 @@ const projects = [
     name: 'Errand',
     status: 'BUILDING',
     year: '2026',
-    href: '/projects/errand',
+    href: baseUrl('/projects/errand'),
     desc: 'Send your model on fewer errands. A marketplace where big models hand off tasks to cheaper specialist models.',
   },
   {
@@ -15,7 +16,7 @@ const projects = [
     name: 'tracebank',
     status: 'BUILDING',
     year: '2026',
-    href: '/projects/tracebank',
+    href: baseUrl('/projects/tracebank'),
     desc: 'A plugin that collects consented, long-horizon coding agent traces, scrubbed on your own machine.',
   },
   {
@@ -23,7 +24,7 @@ const projects = [
     name: 'Project Z',
     status: 'BUILDING',
     year: '2026',
-    href: '/projects/project-z',
+    href: baseUrl('/projects/project-z'),
     desc: 'A self-hostable platform for agents that get better over time. Run, see, learn.',
   },
   {
@@ -31,7 +32,7 @@ const projects = [
     name: 'Reminders',
     status: 'SHIPPED',
     year: '2026',
-    href: '/projects/reminders',
+    href: baseUrl('/projects/reminders'),
     desc: "A small Windows app so birthdays, events and tasks don't slip through.",
   },
 ];
@@ -53,7 +54,7 @@ const pad = (n: number) => String(n + 1).padStart(2, '0');
 const tree = (i: number, len: number) => (i === len - 1 ? '└─' : '├─');
 ---
 <!doctype html>
-<html lang="en">
+<html lang="en" data-base={import.meta.env.BASE_URL.replace(/[/]$/, "")}>
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -668,7 +669,7 @@ const tree = (i: number, len: number) => (i === len - 1 ? '└─' : '├─');
   <div class="console">
     <div class="topstrip">
       <div class="brand" aria-hidden="true"><b>SSX-1</b><span>Amber phosphor workstation</span></div>
-      <a class="draft-tag" href="/drafts">Draft: Mainframe</a>
+      <a class="draft-tag" href={baseUrl('/drafts')}>Draft: Mainframe</a>
       <div class="stripes" aria-hidden="true"><i></i><i></i><i></i></div>
       <div class="leds" aria-hidden="true">
         <span class="led pwr"><i></i>PWR</span>
@@ -758,7 +759,7 @@ const tree = (i: number, len: number) => (i === len - 1 ? '└─' : '├─');
                       <h3>ERRAND</h3>
                       <div class="meta">STATUS: <span class="busy">BUILDING</span> │ YEAR: 2026</div>
                       <p>Send your model on fewer errands. A marketplace where big models hand off tasks to cheaper specialist models.</p>
-                      <a class="open" href="/projects/errand">[ENTER] OPEN ▸</a>
+                      <a class="open" href={baseUrl('/projects/errand')}>[ENTER] OPEN ▸</a>
                     </article>
 
                     <article class="ro" data-for="tracebank">
@@ -780,7 +781,7 @@ const tree = (i: number, len: number) => (i === len - 1 ? '└─' : '├─');
                       <h3>TRACEBANK</h3>
                       <div class="meta">STATUS: <span class="busy">BUILDING</span> │ YEAR: 2026</div>
                       <p>A plugin that collects consented, long-horizon coding agent traces, scrubbed on your own machine.</p>
-                      <a class="open" href="/projects/tracebank">[ENTER] OPEN ▸</a>
+                      <a class="open" href={baseUrl('/projects/tracebank')}>[ENTER] OPEN ▸</a>
                     </article>
 
                     <article class="ro" data-for="project-z">
@@ -801,7 +802,7 @@ const tree = (i: number, len: number) => (i === len - 1 ? '└─' : '├─');
                       <h3>PROJECT Z</h3>
                       <div class="meta">STATUS: <span class="busy">BUILDING</span> │ YEAR: 2026</div>
                       <p>A self-hostable platform for agents that get better over time. Run, see, learn.</p>
-                      <a class="open" href="/projects/project-z">[ENTER] OPEN ▸</a>
+                      <a class="open" href={baseUrl('/projects/project-z')}>[ENTER] OPEN ▸</a>
                     </article>
 
                     <article class="ro" data-for="reminders">
@@ -818,7 +819,7 @@ const tree = (i: number, len: number) => (i === len - 1 ? '└─' : '├─');
                       <h3>REMINDERS</h3>
                       <div class="meta">STATUS: <span class="okc">SHIPPED</span> │ YEAR: 2026</div>
                       <p>A small Windows app so birthdays, events and tasks don't slip through.</p>
-                      <a class="open" href="/projects/reminders">[ENTER] OPEN ▸</a>
+                      <a class="open" href={baseUrl('/projects/reminders')}>[ENTER] OPEN ▸</a>
                     </article>
                   </div>
                 </div>
@@ -832,7 +833,7 @@ const tree = (i: number, len: number) => (i === len - 1 ? '└─' : '├─');
                   <ul class="menu">
                     {research.map((r, i) => (
                       <li>
-                        <a class="row" href="/research">
+                        <a class="row" href={baseUrl('/research')}>
                           <span class="tree" aria-hidden="true">{tree(i, research.length)}</span>
                           <span class="idx">[R{i + 1}]</span>
                           <span class="nm">{r.title}</span>
@@ -861,7 +862,7 @@ const tree = (i: number, len: number) => (i === len - 1 ? '└─' : '├─');
                       </a>
                     </li>
                     <li>
-                      <a class="row" href="/writing">
+                      <a class="row" href={baseUrl('/writing')}>
                         <span class="tree" aria-hidden="true">└─</span>
                         <span class="idx">[W2]</span>
                         <span class="nm caps">All posts</span>
@@ -881,7 +882,7 @@ const tree = (i: number, len: number) => (i === len - 1 ? '└─' : '├─');
                   <ul class="menu">
                     {oss.map((o, i) => (
                       <li>
-                        <a class="row" href="/oss">
+                        <a class="row" href={baseUrl('/oss')}>
                           <span class="tree" aria-hidden="true">├─</span>
                           <span class="idx">[O{i + 1}]</span>
                           <span class="nm">{o.name}</span>
@@ -973,7 +974,7 @@ const tree = (i: number, len: number) => (i === len - 1 ? '└─' : '├─');
       try { soundOn = localStorage.getItem('mf-sound') === '1'; } catch (e) {}
       function sfx(name, vol) {
         if (!soundOn) return;
-        var a = new Audio('/assets/sfx/' + name + '.mp3');
+        var a = new Audio((document.documentElement.dataset.base || '') + '/assets/sfx/' + name + '.mp3');
         a.volume = vol || 0.3;
         a.play().catch(function () {});
       }

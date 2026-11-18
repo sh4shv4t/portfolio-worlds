@@ -1,4 +1,5 @@
 ---
+import { url as baseUrl } from '../../site';
 // DRAFT: Workbench. An engineering student's bench at 3 AM, rendered as pixel art.
 // The scene is authored as one SVG (1920x1080), then rasterised to a 640x360 canvas
 // and scaled up with hard pixels. Everything interactive sits in HTML/SVG overlays.
@@ -36,19 +37,19 @@ function gear(cx: number, cy: number, r: number, teeth: number, ry = 1) {
 
 // Cubbies in the back shelf, left to right (from the sketch)
 const cubbies = [
-  { x1: 210, x2: 443, href: '/projects/project-z', title: 'Project Z', label: 'PROJECT Z', text: 'A self-hostable platform for agents that get better over time. Run, see, learn.' },
-  { x1: 443, x2: 690, href: '/projects/errand', title: 'Errand', label: 'ERRAND', text: 'Send your model on fewer errands. Big models hand off tasks to cheaper specialists.' },
-  { x1: 690, x2: 913, href: '/projects/tracebank', title: 'tracebank', label: 'TRACEBANK', text: 'Collects consented, long-horizon coding agent traces, scrubbed on your own machine.' },
-  { x1: 913, x2: 1172, href: '/research', title: 'Research', label: 'RESEARCH', text: 'Hidden overrides in reasoning models, why LLMs sound alike and a malloc question.' },
-  { x1: 1172, x2: 1346, href: '/projects/reminders', title: 'Reminders', label: 'REMINDERS', text: "A small Windows app so birthdays, events and tasks don't slip through." },
+  { x1: 210, x2: 443, href: baseUrl('/projects/project-z'), title: 'Project Z', label: 'PROJECT Z', text: 'A self-hostable platform for agents that get better over time. Run, see, learn.' },
+  { x1: 443, x2: 690, href: baseUrl('/projects/errand'), title: 'Errand', label: 'ERRAND', text: 'Send your model on fewer errands. Big models hand off tasks to cheaper specialists.' },
+  { x1: 690, x2: 913, href: baseUrl('/projects/tracebank'), title: 'tracebank', label: 'TRACEBANK', text: 'Collects consented, long-horizon coding agent traces, scrubbed on your own machine.' },
+  { x1: 913, x2: 1172, href: baseUrl('/research'), title: 'Research', label: 'RESEARCH', text: 'Hidden overrides in reasoning models, why LLMs sound alike and a malloc question.' },
+  { x1: 1172, x2: 1346, href: baseUrl('/projects/reminders'), title: 'Reminders', label: 'REMINDERS', text: "A small Windows app so birthdays, events and tasks don't slip through." },
 ];
 
 // Clickable things on the bench (scene coordinates)
 const hotspots = [
   ...cubbies.map((c) => ({ x: c.x1 + 4, y: 304, w: c.x2 - c.x1 - 8, h: 232, href: c.href, title: c.title, text: c.text })),
-  { x: 1352, y: 304, w: 360, h: 228, href: '/oss', title: 'Open source & Kaggle', text: 'Merged PRs in Kubeflow and Cortex, plus Name That LLM on Kaggle.' },
-  { x: 1296, y: 596, w: 372, h: 244, href: '/writing', title: 'Writing', text: 'Drafts and articles. Mostly on Medium.' },
-  { x: 456, y: 600, w: 494, h: 124, href: '/projects', title: 'Everything on the bench', text: 'All the projects, shipped and half-wired.' },
+  { x: 1352, y: 304, w: 360, h: 228, href: baseUrl('/oss'), title: 'Open source & Kaggle', text: 'Merged PRs in Kubeflow and Cortex, plus Name That LLM on Kaggle.' },
+  { x: 1296, y: 596, w: 372, h: 244, href: baseUrl('/writing'), title: 'Writing', text: 'Drafts and articles. Mostly on Medium.' },
+  { x: 456, y: 600, w: 494, h: 124, href: baseUrl('/projects'), title: 'Everything on the bench', text: 'All the projects, shipped and half-wired.' },
 ];
 
 const notes = [
@@ -59,13 +60,13 @@ const notes = [
 ];
 
 const inventory = [
-  { item: 'Beige CRT', href: '/projects/project-z', title: 'Project Z', text: cubbies[0].text, color: '#4dff88' },
-  { item: 'Courier drone', href: '/projects/errand', title: 'Errand', text: cubbies[1].text, color: '#ffb347' },
-  { item: 'Tape deck', href: '/projects/tracebank', title: 'tracebank', text: cubbies[2].text, color: '#c9c3b6' },
-  { item: 'Oscilloscope', href: '/research', title: 'Research', text: cubbies[3].text, color: '#22e1d6' },
-  { item: 'Alarm clock', href: '/projects/reminders', title: 'Reminders', text: cubbies[4].text, color: '#ff4d4d' },
-  { item: 'Pegboard', href: '/oss', title: 'Open source & Kaggle', text: 'Merged PRs in Kubeflow and Cortex, plus Name That LLM.', color: '#b06bff' },
-  { item: 'Laptop', href: '/writing', title: 'Writing', text: 'Drafts and articles, mostly on Medium.', color: '#8ea4ff' },
+  { item: 'Beige CRT', href: baseUrl('/projects/project-z'), title: 'Project Z', text: cubbies[0].text, color: '#4dff88' },
+  { item: 'Courier drone', href: baseUrl('/projects/errand'), title: 'Errand', text: cubbies[1].text, color: '#ffb347' },
+  { item: 'Tape deck', href: baseUrl('/projects/tracebank'), title: 'tracebank', text: cubbies[2].text, color: '#c9c3b6' },
+  { item: 'Oscilloscope', href: baseUrl('/research'), title: 'Research', text: cubbies[3].text, color: '#22e1d6' },
+  { item: 'Alarm clock', href: baseUrl('/projects/reminders'), title: 'Reminders', text: cubbies[4].text, color: '#ff4d4d' },
+  { item: 'Pegboard', href: baseUrl('/oss'), title: 'Open source & Kaggle', text: 'Merged PRs in Kubeflow and Cortex, plus Name That LLM.', color: '#b06bff' },
+  { item: 'Laptop', href: baseUrl('/writing'), title: 'Writing', text: 'Drafts and articles, mostly on Medium.', color: '#8ea4ff' },
 ];
 
 const holes = Array.from({ length: 26 }, (_, i) => i);
@@ -573,10 +574,10 @@ const holes = Array.from({ length: 26 }, (_, i) => i);
         <span class="tc" id="tc">SP 00:00:00</span>
       </div>
       <nav class="menu" aria-label="Main">
-        <a href="/projects">Projects</a>
-        <a href="/research">Research</a>
-        <a href="/writing">Writing</a>
-        <a href="/oss">OSS</a>
+        <a href={baseUrl('/projects')}>Projects</a>
+        <a href={baseUrl('/research')}>Research</a>
+        <a href={baseUrl('/writing')}>Writing</a>
+        <a href={baseUrl('/oss')}>OSS</a>
         <button type="button" id="res" title="Toggle pixel rendering">RES: 360p</button>
         <button type="button" id="snd" title="Toggle sound" aria-pressed="false">SND: OFF</button>
       </nav>
@@ -619,7 +620,7 @@ const holes = Array.from({ length: 26 }, (_, i) => i);
       </p>
     </section>
 
-    <a class="draft-tag" href="/drafts">Draft: Workbench</a>
+    <a class="draft-tag" href={baseUrl('/drafts')}>Draft: Workbench</a>
 
     <script>
       const stage = document.getElementById('stage')!;
@@ -666,7 +667,7 @@ const holes = Array.from({ length: 26 }, (_, i) => i);
       } catch {}
       const sfx = (name: string, vol = 0.35) => {
         if (!soundOn) return;
-        const a = new Audio(`/assets/sfx/${name}.mp3`);
+        const a = new Audio(`${import.meta.env.BASE_URL.replace(/[/]$/, "")}/assets/sfx/${name}.mp3`);
         a.volume = vol;
         a.play().catch(() => {});
       };

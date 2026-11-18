@@ -1,4 +1,5 @@
 ---
+import { url as baseUrl } from '../../site';
 // Index of design drafts. Delete src/pages/drafts/ once a direction is picked.
 const drafts = [
   {
@@ -58,7 +59,7 @@ const drafts = [
         {
           drafts.map((d, i) => (
             <li>
-              <a href={`/drafts/${d.slug}`}>
+              <a href={baseUrl(`/drafts/${d.slug}`)}>
                 <span class="num">0{i + 1}</span>
                 <span class="body">
                   <strong>{d.name}</strong>
@@ -73,7 +74,7 @@ const drafts = [
           ))
         }
       </ol>
-      <p class="back"><a href="/">current plain site →</a></p>
+      <p class="back"><a href={baseUrl('/')}>current plain site →</a></p>
     </main>
 
     <style>
