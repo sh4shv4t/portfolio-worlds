@@ -1,0 +1,76 @@
+---
+import type { CollectionEntry } from 'astro:content';
+import { url } from '../site';
+
+interface Props {
+  project: CollectionEntry<'projects'>;
+  i?: number;
+}
+const { project, i = 0 } = Astro.props;
+const d = project.data;
+---
+
+<a class="card reveal" style={`--i:${i}`} href={url(`/projects/${project.id}`)}>
+  <div class="top">
+    <span class="pill">{d.status}</span>
+    <span class="eyebrow">{d.year}</span>
+  </div>
+  <h3 transition:name={`project-${project.id}`}>{d.title}</h3>
+  <p class="muted">{d.tagline}</p>
+  <ul class="tags">{d.tags.map((t) => <li>{t}</li>)}</ul>
+</a>
+
+<style>
+  .card {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 22px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--surface);
+    text-decoration: none;
+    overflow: hidden;
+    isolation: isolate;
+    transition:
+      transform var(--dur-fast) var(--ease-out),
+      border-color var(--dur-fast),
+      box-shadow var(--dur-fast),
+      opacity var(--dur) var(--ease-out);
+  }
+  /* glow that follows the pointer (position set in Base.astro) */
+  .card::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    background: radial-gradient(
+      320px circle at var(--mx, 50%) var(--my, 0%),
+      var(--accent-soft),
+      transparent 70%
+    );
+    opacity: 0;
+    transition: opacity var(--dur-fast);
+  }
+  .card:hover {
+    transform: translateY(-3px);
+    border-color: color-mix(in oklab, var(--accent) 45%, var(--border));
+    box-shadow: 0 12px 30px -18px color-mix(in oklab, var(--accent) 60%, transparent);
+  }
+  .card:hover::before {
+    opacity: 1;
+  }
+  .top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  h3 {
+    font-size: 1.25rem;
+  }
+  p {
+    margin: 0;
+    flex: 1;
+  }
+</style>

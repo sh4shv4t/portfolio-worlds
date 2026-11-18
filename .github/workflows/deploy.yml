@@ -1,0 +1,43 @@
+# Deploys to GitHub Pages on every push to main.
+# One-time setup: repo Settings > Pages > Source: "GitHub Actions".
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+  schedule:
+    - cron: '0 3 * * 1' # weekly rebuild so new Medium posts show up
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      SITE: https://sh4shv4t.github.io
+      # If the repo is named sh4shv4t.github.io keep BASE as /.
+      # If it's named something else (say "portfolio"), set BASE to /portfolio
+      BASE: /
+    steps:
+      - uses: actions/checkout@v4
+      - uses: withastro/action@v3
+        with:
+          node-version: 22
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

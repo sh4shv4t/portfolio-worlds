@@ -1,0 +1,90 @@
+---
+import { contributions, competitions } from '../data/oss';
+
+interface Props {
+  limit?: number;
+}
+const { limit } = Astro.props;
+const prs = limit ? contributions.slice(0, limit) : contributions;
+---
+
+<div class="grid">
+  <div>
+    <p class="eyebrow reveal">Open source</p>
+    <ul class="rows">
+      {
+        prs.map((c, i) => (
+          <li class="reveal" style={`--i:${i}`}>
+            <a href={c.link} target="_blank" rel="noopener">
+              <span class="repo">{c.project}</span>
+              <span class="muted">{c.what}</span>
+            </a>
+            <span class="pill">{c.status}</span>
+          </li>
+        ))
+      }
+    </ul>
+  </div>
+  <div>
+    <p class="eyebrow reveal">Competitions</p>
+    <ul class="rows">
+      {
+        competitions.map((c, i) => (
+          <li class="reveal" style={`--i:${i}`}>
+            <div>
+              <span class="repo">
+                {c.link ? <a href={c.link}>{c.name}</a> : c.name}
+                <span class="muted"> · {c.host}</span>
+              </span>
+              <span class="muted">{c.what}</span>
+              <span class="muted small">Team {c.team}</span>
+            </div>
+            <span class="pill">{c.status}</span>
+          </li>
+        ))
+      }
+    </ul>
+  </div>
+</div>
+
+<style>
+  .grid {
+    display: grid;
+    gap: 40px;
+  }
+  @media (min-width: 860px) {
+    .grid {
+      grid-template-columns: 3fr 2fr;
+    }
+  }
+  .rows {
+    list-style: none;
+    margin: 12px 0 0;
+    padding: 0;
+  }
+  li {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 16px;
+    padding: 16px 0;
+    border-top: 1px solid var(--border);
+  }
+  li a,
+  li > div {
+    display: grid;
+    gap: 2px;
+    text-decoration: none;
+  }
+  .repo {
+    font-family: var(--font-mono);
+    font-size: 0.95rem;
+    transition: color var(--dur-fast);
+  }
+  li a:hover .repo {
+    color: var(--accent);
+  }
+  .small {
+    font-size: 0.85rem;
+  }
+</style>

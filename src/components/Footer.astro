@@ -1,0 +1,53 @@
+---
+import { site } from '../site';
+
+const labels: Record<string, string> = {
+  github: 'GitHub',
+  medium: 'Medium',
+  kaggle: 'Kaggle',
+  linkedin: 'LinkedIn',
+  email: 'Email',
+};
+const links = Object.entries(site.links)
+  .filter(([, href]) => href)
+  .map(([k, href]) => ({ label: labels[k] ?? k, href: k === 'email' ? `mailto:${href}` : href }));
+---
+
+<footer class="footer">
+  <div class="container inner">
+    <span class="muted">© {new Date().getFullYear()} {site.name}</span>
+    <ul>
+      {links.map((l) => <li><a href={l.href} rel="me noopener" target="_blank">{l.label}</a></li>)}
+    </ul>
+  </div>
+</footer>
+
+<style>
+  .footer {
+    margin-top: 96px;
+    border-top: 1px solid var(--border);
+    font-size: 0.9rem;
+  }
+  .inner {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px 24px;
+    justify-content: space-between;
+    padding-top: 28px;
+    padding-bottom: 40px;
+  }
+  ul {
+    display: flex;
+    gap: 18px;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+  a {
+    color: var(--muted);
+    text-decoration: none;
+  }
+  a:hover {
+    color: var(--accent);
+  }
+</style>

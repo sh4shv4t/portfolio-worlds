@@ -1,0 +1,53 @@
+/*
+  THEME LIVES HERE.
+  Swap these values for your theme and the whole site follows.
+  Nothing else in the codebase hardcodes a color, font or timing.
+*/
+:root {
+  --bg: #faf9f7;
+  --surface: #ffffff;
+  --text: #1a1a1f;
+  --muted: #5f5f6a;
+  --border: #e5e2dc;
+  --accent: #3355d6;
+  --accent-text: #ffffff;
+  --accent-soft: color-mix(in oklab, var(--accent) 12%, transparent);
+
+  --font-body: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-display: var(--font-body);
+  --font-mono: ui-monospace, 'Cascadia Code', Consolas, monospace;
+
+  --radius: 14px;
+  --max: 1040px;
+  --measure: 68ch;
+
+  --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --dur-fast: 180ms;
+  --dur: 650ms;
+
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --bg: #0f0f12;
+    --surface: #17171c;
+    --text: #ececf1;
+    --muted: #9d9daa;
+    --border: #2a2a32;
+    --accent: #8ea4ff;
+    --accent-text: #0f0f12;
+    color-scheme: dark;
+  }
+}
+
+:root[data-theme='dark'] {
+  --bg: #0f0f12;
+  --surface: #17171c;
+  --text: #ececf1;
+  --muted: #9d9daa;
+  --border: #2a2a32;
+  --accent: #8ea4ff;
+  --accent-text: #0f0f12;
+  color-scheme: dark;
+}

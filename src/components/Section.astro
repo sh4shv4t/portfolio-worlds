@@ -1,0 +1,32 @@
+---
+interface Props {
+  title: string;
+  href?: string;
+  linkText?: string;
+}
+const { title, href, linkText = 'See all' } = Astro.props;
+---
+
+<section class="section container">
+  <div class="head reveal">
+    <h2>{title}</h2>
+    {href && <a class="link-arrow" href={href}>{linkText}</a>}
+  </div>
+  <slot />
+</section>
+
+<style>
+  .section {
+    margin-top: 88px;
+  }
+  .head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+  h2 {
+    font-size: clamp(1.4rem, 3vw, 1.8rem);
+  }
+</style>

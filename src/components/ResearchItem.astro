@@ -1,0 +1,74 @@
+---
+import type { CollectionEntry } from 'astro:content';
+import { render } from 'astro:content';
+
+interface Props {
+  entry: CollectionEntry<'research'>;
+  i?: number;
+  full?: boolean; // show the Markdown body too
+}
+const { entry, i = 0, full = false } = Astro.props;
+const d = entry.data;
+const { Content } = full ? await render(entry) : { Content: null };
+---
+
+<article class="item reveal" style={`--i:${i}`} id={entry.id}>
+  <div class="meta">
+    <span class="pill">{d.status}</span>
+    <span class="eyebrow">{d.year}</span>
+  </div>
+  <div>
+    <h3>{d.title}</h3>
+    <p class="question muted">{d.question}</p>
+    {
+      Content && (
+        <div class="prose">
+          <Content />
+        </div>
+      )
+    }
+    <ul class="tags">{d.tags.map((t) => <li>{t}</li>)}</ul>
+    {d.link && <a class="link-arrow" href={d.link}>Read more</a>}
+  </div>
+</article>
+
+<style>
+  .item {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 8px;
+    padding: 24px 0;
+    border-top: 1px solid var(--border);
+  }
+  @media (min-width: 720px) {
+    .item {
+      grid-template-columns: 160px 1fr;
+      gap: 24px;
+    }
+  }
+  .meta {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    align-self: start;
+  }
+  @media (min-width: 720px) {
+    .meta {
+      flex-direction: column;
+      align-items: flex-start;
+    }
+  }
+  h3 {
+    font-size: 1.2rem;
+    margin-bottom: 6px;
+  }
+  .question {
+    max-width: var(--measure);
+  }
+  .prose {
+    margin: 8px 0 14px;
+  }
+  .tags {
+    margin-bottom: 8px;
+  }
+</style>

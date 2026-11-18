@@ -1,0 +1,137 @@
+---
+import { getCollection } from 'astro:content';
+import Base from '../layouts/Base.astro';
+import Section from '../components/Section.astro';
+import ProjectCard from '../components/ProjectCard.astro';
+import ResearchItem from '../components/ResearchItem.astro';
+import PostList from '../components/PostList.astro';
+import OssList from '../components/OssList.astro';
+import { getPosts } from '../lib/medium';
+import { site, url } from '../site';
+
+const byOrder = (a: { data: { order: number } }, b: { data: { order: number } }) =>
+  a.data.order - b.data.order;
+const projects = (await getCollection('projects', (p) => !p.data.draft && p.data.featured)).sort(byOrder);
+const research = (await getCollection('research', (r) => !r.data.draft)).sort(byOrder);
+const posts = (await getPosts()).slice(0, 3);
+
+// Each word animates in a beat after the previous one.
+const greeting = "Hey, I'm Shashvat.".split(' ');
+---
+
+<Base>
+  <section class="hero container">
+    <p class="eyebrow fade" style="--d:0">Builder · Researcher</p>
+    <h1>
+      {greeting.map((w, i) => <span class="word" style={`--d:${i + 1}`}>{w}</span>)}
+    </h1>
+    <p class="bio fade" style="--d:4">
+      I build stuff around LLM agents: how they run, how you figure out where they went wrong and how
+      they get better over time. On the research side I poke at the insides of reasoning models, and
+      when I can I contribute to open source AI infra.
+    </p>
+    <div class="links fade" style="--d:5">
+      <a class="btn primary" href={url('/projects')}>See my projects</a>
+      <a class="btn" href={site.links.github} target="_blank" rel="me noopener">GitHub</a>
+      <a class="btn" href={site.links.medium} target="_blank" rel="me noopener">Medium</a>
+    </div>
+  </section>
+
+  <Section title="Selected projects" href={url('/projects')}>
+    <div class="cards">
+      {projects.map((p, i) => <ProjectCard project={p} i={i} />)}
+    </div>
+  </Section>
+
+  <Section title="Research" href={url('/research')} linkText="More on each">
+    {research.map((r, i) => <ResearchItem entry={r} i={i} />)}
+  </Section>
+
+  <Section title="Writing" href={site.links.medium} linkText="All on Medium">
+    <PostList posts={posts} />
+  </Section>
+
+  <Section title="Open source & Kaggle" href={url('/oss')}>
+    <OssList />
+  </Section>
+</Base>
+
+<style>
+  .hero {
+    padding-top: clamp(64px, 14vw, 140px);
+  }
+  h1 {
+    font-size: clamp(2.6rem, 9vw, 5.2rem);
+    margin: 10px 0 24px;
+  }
+  .bio {
+    font-size: clamp(1.1rem, 2.2vw, 1.3rem);
+    max-width: 40ch;
+    color: var(--muted);
+  }
+  .links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 28px;
+  }
+  .btn {
+    padding: 10px 18px;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    background: var(--surface);
+    text-decoration: none;
+    font-weight: 500;
+    font-size: 0.95rem;
+    transition:
+      transform var(--dur-fast) var(--ease-out),
+      border-color var(--dur-fast);
+  }
+  .btn:hover {
+    transform: translateY(-2px);
+    border-color: var(--accent);
+  }
+  .btn.primary {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: var(--accent-text);
+  }
+  .cards {
+    display: grid;
+    gap: 16px;
+  }
+  @media (min-width: 720px) {
+    .cards {
+      grid-template-columns: repeat(2, 1fr);
+    }
+  }
+
+  /* Load-in animation for the hero */
+  .word,
+  .fade {
+    display: inline-block;
+    animation: rise var(--dur) var(--ease-out) both;
+    animation-delay: calc(var(--d) * 90ms + 80ms);
+  }
+  .word {
+    margin-right: 0.22em;
+  }
+  .fade {
+    display: block;
+  }
+  .links.fade {
+    display: flex;
+  }
+  @keyframes rise {
+    from {
+      opacity: 0;
+      transform: translateY(0.4em);
+      filter: blur(4px);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+      filter: none;
+    }
+  }
+</style>

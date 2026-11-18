@@ -1,0 +1,18 @@
+---
+import Base from '../layouts/Base.astro';
+import PageHeader from '../components/PageHeader.astro';
+import OssList from '../components/OssList.astro';
+---
+
+<Base title="Open source & Kaggle" description="Open source contributions and competitions.">
+  <PageHeader eyebrow="Open source & Kaggle" title="Out in the open" lede="PRs I've gotten merged into other people's projects, and competitions I'm in. Mostly AI infra and pipelines, that's where I want to spend more time." />
+  <div class="container list">
+    <OssList />
+  </div>
+</Base>
+
+<style>
+  .list {
+    margin-top: 24px;
+  }
+</style>

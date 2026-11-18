@@ -1,0 +1,21 @@
+---
+import Base from '../layouts/Base.astro';
+import PageHeader from '../components/PageHeader.astro';
+import PostList from '../components/PostList.astro';
+import { getPosts } from '../lib/medium';
+
+const posts = await getPosts();
+---
+
+<Base title="Writing" description="Articles by Shashvat Singh.">
+  <PageHeader eyebrow="Writing" title="Stuff I've written" lede="I write on Medium. This list pulls straight from there every time the site builds." />
+  <div class="container list">
+    <PostList posts={posts} />
+  </div>
+</Base>
+
+<style>
+  .list {
+    margin-top: 24px;
+  }
+</style>
